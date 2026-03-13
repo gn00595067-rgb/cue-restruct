@@ -222,7 +222,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c = ws.cell(curr_row, 8+d_idx); c.value = "" if daily_sum == 0 else daily_sum; c.alignment = ALIGN_CENTER; c.font = FONT_STD; c.number_format = FMT_NUMBER
         ws.cell(curr_row, spots_col_idx, total_spots_all).alignment = ALIGN_CENTER; ws.cell(curr_row, spots_col_idx).font = FONT_STD
         for c_idx in range(1, total_cols + 1): set_border(ws.cell(curr_row, c_idx), top=BS_MEDIUM, bottom=BS_MEDIUM, left=BS_THIN, right=BS_THIN)
-        set_border(ws.cell(curr_row, 1), left=BS_MEDIUM, right=BS_MEDIUM); set_border(ws.cell(curr_row, spots_col_idx - 1), right=BS_MEDIUM); set_border(ws.cell(curr_row, spots_col_idx), left=BS_MEDIUM, right=BS_MEDIUM); curr_row += 1
+        set_border(ws.cell(curr_row, 1), left=BS_MEDIUM, right=BS_MEDIUM); set_border(ws.cell(curr_row, spots_col_idx), left=BS_MEDIUM, right=BS_MEDIUM)
+        ws.cell(curr_row, spots_col_idx - 1).border = Border(top=SIDE_MEDIUM, bottom=SIDE_MEDIUM, left=SIDE_THIN, right=SIDE_MEDIUM)
+        curr_row += 1
 
         # 頁尾 (費用與簽名)
         vat = int(budget * 0.05); grand_total = budget + vat
@@ -391,7 +393,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         for c_idx in range(1, total_cols+1): ws.cell(curr_row, c_idx).border = BORDER_ALL_THIN
         draw_outer_border_fast(ws, curr_row, curr_row, 1, total_cols)
         for c_idx in range(1, total_cols+1): set_border(ws.cell(curr_row, c_idx), bottom=BS_MEDIUM)
-        set_border(ws.cell(curr_row, 5), right=BS_MEDIUM); set_border(ws.cell(curr_row, end_c_start - 1), right=BS_MEDIUM); curr_row += 1
+        set_border(ws.cell(curr_row, 5), right=BS_MEDIUM)
+        ws.cell(curr_row, end_c_start - 1).border = Border(top=SIDE_MEDIUM, bottom=SIDE_MEDIUM, left=SIDE_THIN, right=SIDE_MEDIUM)
+        curr_row += 1
 
         vat = int(budget * 0.05); grand_total = budget + vat
         footer_stack = [("製作", prod), ("5% VAT", vat), ("Grand Total", grand_total)]
@@ -604,7 +608,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         for c_idx in range(1, total_cols+1): ws.cell(curr_row, c_idx).border = BORDER_ALL_THIN
         draw_outer_border_fast(ws, curr_row, curr_row, 1, total_cols)
         for c_idx in range(1, total_cols+1): set_border(ws.cell(curr_row, c_idx), bottom=BS_MEDIUM)
-        set_border(ws.cell(curr_row, 5), right=BS_MEDIUM); set_border(ws.cell(curr_row, end_c_start - 1), right=BS_MEDIUM); curr_row += 1
+        set_border(ws.cell(curr_row, 5), right=BS_MEDIUM)
+        ws.cell(curr_row, end_c_start - 1).border = Border(top=SIDE_MEDIUM, bottom=SIDE_MEDIUM, left=SIDE_THIN, right=SIDE_MEDIUM)
+        curr_row += 1
 
         vat = int(budget * 0.05); grand_total = budget + vat
         footer_stack = [("製作", prod), ("5% VAT", vat), ("Grand Total", grand_total)]
