@@ -331,47 +331,11 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
         return
     _ensure_wave_combo_arrays()
 
-    # 備註 (Remarks)：可修改全文；付款兌現日預設為下個月最後一天
-    _def_pay = _last_day_of_next_month()
+    # 各波段備註以各波自己的三個欄位為準，不再使用上方範本
     _def_sign = datetime.now() + timedelta(days=3)
     if isinstance(_def_sign, datetime):
         _def_sign = _def_sign.date()
-    aq_sign = st.session_state.get("aq_sign_deadline", _def_sign)
-    aq_bill = st.session_state.get("aq_billing_month", "2026年2月")
-    aq_pay = st.session_state.get("aq_payment_date", _def_pay)
-    _default_rem_lines = get_remarks_text(
-        aq_sign if isinstance(aq_sign, (datetime, type(_def_sign))) else _def_sign,
-        aq_bill,
-        aq_pay if isinstance(aq_pay, (datetime, type(_def_pay))) else _def_pay,
-    )
-    if "aq_remarks_text" not in st.session_state:
-        st.session_state.aq_remarks_text = "\n".join(_default_rem_lines)
-
-    with st.expander("📝 備註 (Remarks) — 可修改（預設範本）", expanded=False):
-        st.caption("此為**預設範本**：回簽／請款月份／付款兌現日可調整；「依上列日期重新產生備註」會依這三個欄位重寫下方備註全文（第 1、5、6 條的日期會跟著變），方便快速套用。各波段可在下方各自設定並重新產生該波的備註。")
-        rc1, rc2, rc3 = st.columns(3)
-        with rc1:
-            aq_sign = st.date_input("回簽及進單期限", aq_sign, key="aq_sign_deadline")
-        with rc2:
-            aq_bill = st.text_input("請款月份", aq_bill, key="aq_billing_month", placeholder="例：2026年2月")
-        with rc3:
-            aq_pay = st.date_input("付款兌現日期（預設下月最後一天）", aq_pay, key="aq_payment_date")
-        if st.button("依上列日期重新產生備註", key="aq_rem_refresh"):
-            st.session_state.aq_remarks_text = "\n".join(get_remarks_text(
-                st.session_state.get("aq_sign_deadline", _def_sign),
-                st.session_state.get("aq_billing_month", "2026年2月"),
-                st.session_state.get("aq_payment_date", _def_pay),
-            ))
-            st.rerun()
-        st.text_area(
-            "備註全文（預設範本，各波段可再個別修改）",
-            value=st.session_state.get("aq_remarks_text", "\n".join(_default_rem_lines)),
-            height=220,
-            key="aq_remarks_text",
-            help="此為預設備註範本；下方每個波段都有「本波備註」可單獨設定該波的 Remarks。",
-        )
-
-    _default_rem_str = st.session_state.get("aq_remarks_text", "\n".join(_default_rem_lines)) or ""
+    _def_pay = _last_day_of_next_month()
 
     st.markdown("---")
     st.subheader("📝 各波段備註（每個波段可分別設定）")
@@ -384,9 +348,9 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
         if "payment_date" not in w or w.get("payment_date") is None:
             st.session_state.aq_waves[i]["payment_date"] = _def_pay_wave
         if "sign_deadline" not in w or w.get("sign_deadline") is None:
-            st.session_state.aq_waves[i]["sign_deadline"] = st.session_state.get("aq_sign_deadline", _def_sign)
+            st.session_state.aq_waves[i]["sign_deadline"] = _def_sign
         if "billing_month" not in w or w.get("billing_month") is None:
-            st.session_state.aq_waves[i]["billing_month"] = st.session_state.get("aq_billing_month", "2026年2月")
+            st.session_state.aq_waves[i]["billing_month"] = "2026年2月"
         w = st.session_state.aq_waves[i]
         _sig = w.get("sign_deadline", _def_sign)
         _bill = w.get("billing_month", "2026年2月")
@@ -395,7 +359,7 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
             _sig = _sig.date() if hasattr(_sig, "date") else _def_sign
         if isinstance(_pay, datetime):
             _pay = _pay.date() if hasattr(_pay, "date") else _def_pay_wave
-        _ta_val = w.get("remarks_text") or _default_rem_str
+        _ta_val = w.get("remarks_text") or "\n".join(get_remarks_text(_sig, _bill, _pay))
         with st.expander(f"**波段 {i+1}**：{start_d} ~ {end_d} — 本波備註", expanded=(i == 0)):
             st.caption("回簽及進單期限、請款月份、付款兌現日期（預設為本波結束日的下個月最後一天）；修改後按鈕可讓下方備註全文依此更新。")
             r1, r2, r3 = st.columns(3)
@@ -419,7 +383,7 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                 height=200,
                 key=f"aq_wave_remarks_{i}",
                 label_visibility="collapsed",
-                placeholder="留空則使用上方備註範本。可輸入多行，每行會成為一條備註。",
+                placeholder="留空則依上列三個日期欄位自動產生。可輸入多行，每行會成為一條備註。",
             )
             st.session_state.aq_waves[i]["remarks_text"] = st.session_state.get(f"aq_wave_remarks_{i}", _ta_val) or ""
 
@@ -459,13 +423,18 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                     r["pkg_display"] = scaled[j]
             budget_wave = price_override
         p_str = f"{'、'.join([str(r['seconds']) + '秒' for r in rows])} {product_name}"
-        _wave_rem_raw = st.session_state.get(f"aq_wave_remarks_{i}") or w.get("remarks_text") or _default_rem_str
+        _wave_default_rem = "\n".join(get_remarks_text(
+            w.get("sign_deadline", _def_sign),
+            w.get("billing_month", "2026年2月"),
+            w.get("payment_date", _last_day_of_month_after(w["end"])),
+        ))
+        _wave_rem_raw = st.session_state.get(f"aq_wave_remarks_{i}") or w.get("remarks_text") or _wave_default_rem
         _wave_rem = [line.strip() for line in (_wave_rem_raw or "").strip().split("\n") if line.strip()]
         if not _wave_rem:
             _wave_rem = get_remarks_text(
-                st.session_state.get("aq_sign_deadline", _def_sign),
-                st.session_state.get("aq_billing_month", "2026年2月"),
-                st.session_state.get("aq_payment_date", _def_pay),
+                w.get("sign_deadline", _def_sign),
+                w.get("billing_month", "2026年2月"),
+                w.get("payment_date", _last_day_of_month_after(w["end"])),
             )
         with st.expander(f"波段 {i+1} 預覽：{start_d} ~ {end_d}", expanded=False):
             html_preview = generate_html_preview(rows, total_days_wave, start_d, end_d, client_name, client_tax_id, p_str, format_type, _wave_rem, total_list_wave, budget_wave + int(budget_wave * 0.05), budget_wave, 0)
