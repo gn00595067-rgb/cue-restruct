@@ -175,9 +175,10 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
         st.rerun()
     waves = st.session_state.aq_waves
     if waves:
+        st.caption("可為每個波段設定「波段最終價格覆寫」：輸入後該波 CUE 表之總實收將以此金額為準（不需主管登入）。")
         for i in range(len(waves)):
             w = st.session_state.aq_waves[i]
-            c1, c2, c3, c4 = st.columns([1, 2, 2, 1])
+            c1, c2, c3, c4, c5 = st.columns([1, 2, 2, 2, 1])
             with c1:
                 st.caption(f"波段 {i+1}")
             with c2:
@@ -188,6 +189,18 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                     end_default = s
                 e = st.date_input("結束日", end_default, min_value=s, key=f"aq_w_end_{i}", label_visibility="collapsed")
             with c4:
+                ov = w.get("price_override")
+                ov_val = int(ov) if ov is not None and ov != "" else None
+                price_override = st.number_input(
+                    "波段最終價格覆寫 (0=不覆寫)",
+                    min_value=0,
+                    value=ov_val if ov_val is not None else 0,
+                    step=1000,
+                    key=f"aq_w_price_override_{i}",
+                    help="輸入後此波 CUE 表總實收將以此金額為準，各列依比例縮放"
+                )
+                st.session_state.aq_waves[i]["price_override"] = price_override if price_override and price_override > 0 else None
+            with c5:
                 if st.button("刪除此波", key=f"aq_w_del_{i}"):
                     st.session_state.aq_waves.pop(i)
                     st.rerun()
@@ -319,6 +332,19 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
         total_days_wave = (end_d - start_d).days + 1
         total_list_wave = sum(r.get("rate_display", 0) for r in rows if isinstance(r.get("rate_display"), (int, float)))
         budget_wave = sum(r.get("pkg_display", 0) for r in rows if isinstance(r.get("pkg_display"), (int, float)))
+        # 波段最終價格覆寫：若有設定則以該金額為總實收，各列 pkg_display 依比例縮放
+        price_override = w.get("price_override") if isinstance(w.get("price_override"), (int, float)) and w.get("price_override") > 0 else None
+        if price_override is not None and budget_wave and budget_wave > 0:
+            scale = price_override / budget_wave
+            pkg_list = [r.get("pkg_display", 0) for r in rows if isinstance(r.get("pkg_display"), (int, float))]
+            scaled = [int(round(p * scale)) for p in pkg_list]
+            delta = price_override - sum(scaled)
+            if scaled:
+                scaled[0] = scaled[0] + delta
+            for j, r in enumerate(rows):
+                if isinstance(r.get("pkg_display"), (int, float)) and j < len(scaled):
+                    r["pkg_display"] = scaled[j]
+            budget_wave = price_override
         p_str = f"{'、'.join([str(r['seconds']) + '秒' for r in rows])} {product_name}"
         html_preview = generate_html_preview(rows, total_days_wave, start_d, end_d, client_name, client_tax_id, p_str, format_type, rem, total_list_wave, budget_wave + int(budget_wave * 0.05), budget_wave, 0)
         with st.expander(f"波段 {i+1} 預覽：{start_d} ~ {end_d}", expanded=False):
