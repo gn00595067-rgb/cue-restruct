@@ -369,7 +369,7 @@ def main():
                     st.session_state.is_supervisor = False
                     st.rerun()
             # 覆寫欄位「始終」渲染（僅主管時啟用），避免登入時 widget 樹變動觸發 Cached ForwardMsg MISS
-            _total = float(st.session_state.get("total_budget_input", st.session_state.get("temp_budget", 1000000)))
+            _total = float(st.session_state.get("_total_budget_for_sidebar", st.session_state.get("temp_budget", 1000000)))
             if "supervisor_last_total_budget" not in st.session_state:
                 st.session_state.supervisor_last_total_budget = _total
             if _total != st.session_state.supervisor_last_total_budget:
@@ -506,7 +506,8 @@ def main():
             client_name = st.text_input("客戶名稱", def_client)
             client_tax_id = st.text_input("統一編號", def_tax)
         with c2: product_name = st.text_input("產品名稱", def_prod)
-        with c3: total_budget_input = st.number_input("總預算 (未稅 Net)", value=def_budget, step=10000.0, key="total_budget_input")
+        with c3: total_budget_input = st.number_input("總預算 (未稅 Net)", value=def_budget, step=10000.0)
+        st.session_state["_total_budget_for_sidebar"] = float(total_budget_input)
         with c4: prod_cost_input = st.number_input("製作費 (未稅)", value=def_cost, step=1000.0)
         
         with c5_sales: 
