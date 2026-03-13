@@ -365,23 +365,24 @@ def main():
                         st.error("密碼錯誤")
             else:
                 st.success("✅ 目前狀態：主管模式")
-                # 專案優惠價覆寫改在側邊欄，避免主畫面因登入新增 widget 觸發 Cached ForwardMsg MISS
-                _total = float(st.session_state.get("total_budget_input", st.session_state.get("temp_budget", 1000000)))
-                if "supervisor_last_total_budget" not in st.session_state:
-                    st.session_state.supervisor_last_total_budget = _total
-                if _total != st.session_state.supervisor_last_total_budget:
-                    st.session_state.supervisor_last_total_budget = _total
-                    _override_display = _total
-                else:
-                    _override_display = float(st.session_state.get("supervisor_override_price", _total))
-                st.caption("🔒 專案優惠價覆寫")
-                _ov = st.number_input("最終成交價", value=_override_display, step=10000.0, key="supervisor_override_price", label_visibility="collapsed")
-                st.session_state._supervisor_final_budget = _ov
-                if _ov != _total:
-                    st.caption(f"⚠️ 以 ${_ov:,.0f} 結算")
                 if st.button("登出"):
                     st.session_state.is_supervisor = False
                     st.rerun()
+            # 覆寫欄位「始終」渲染（僅主管時啟用），避免登入時 widget 樹變動觸發 Cached ForwardMsg MISS
+            _total = float(st.session_state.get("total_budget_input", st.session_state.get("temp_budget", 1000000)))
+            if "supervisor_last_total_budget" not in st.session_state:
+                st.session_state.supervisor_last_total_budget = _total
+            if _total != st.session_state.supervisor_last_total_budget:
+                st.session_state.supervisor_last_total_budget = _total
+                _override_display = _total
+            else:
+                _override_display = float(st.session_state.get("supervisor_override_price", _total))
+            st.caption("🔒 專案優惠價覆寫")
+            _ov = st.number_input("最終成交價", value=_override_display, step=10000.0, key="supervisor_override_price", label_visibility="collapsed", disabled=not st.session_state.is_supervisor)
+            if st.session_state.is_supervisor:
+                st.session_state._supervisor_final_budget = _ov
+                if _ov != _total:
+                    st.caption(f"⚠️ 以 ${_ov:,.0f} 結算")
             
             st.markdown("---")
             # --- 新增功能: Ragic 搜尋與載入 (強化版 UI) ---
