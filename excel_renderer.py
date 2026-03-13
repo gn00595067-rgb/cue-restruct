@@ -145,6 +145,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c_d.border = BORDER_ALL_THIN; c_w.border = BORDER_ALL_THIN
             set_border(c_d, top=BS_MEDIUM); set_border(c_w, bottom=BS_MEDIUM)
 
+        ws.cell(R(8), spots_col_idx - 1).border = Border(top=SIDE_THIN, bottom=SIDE_MEDIUM, left=SIDE_THIN, right=SIDE_MEDIUM)
         c_spots_7 = ws.cell(R(7), spots_col_idx); c_spots_7.value = "檔次"; c_spots_8 = ws.cell(R(8), spots_col_idx)
         ws.merge_cells(start_row=R(7), start_column=spots_col_idx, end_row=R(8), end_column=spots_col_idx)
         c_spots_7.font = FONT_BOLD; c_spots_7.alignment = ALIGN_CENTER; c_spots_7.border = BORDER_ALL_THIN; c_spots_8.border = BORDER_ALL_THIN
@@ -341,6 +342,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c8 = ws.cell(8, c_idx); c8.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
             if c_idx == date_start_col: set_border(c8, left=BS_MEDIUM)
             if c_idx == total_cols: set_border(c8, right=BS_MEDIUM)
+        ws.cell(header_start_row + 1, end_c_start - 1).border = Border(top=SIDE_THIN, bottom=SIDE_THIN, left=SIDE_THIN, right=SIDE_MEDIUM)
 
         curr_row = header_start_row + 2; grouped_data = {"全家廣播": sorted([r for r in rows if r["media"]=="全家廣播"], key=lambda x:x['seconds']), "新鮮視": sorted([r for r in rows if r["media"]=="新鮮視"], key=lambda x:x['seconds']), "家樂福": sorted([r for r in rows if r["media"]=="家樂福"], key=lambda x:x['seconds'])}
         total_store_count = 0; total_list_sum = 0
@@ -555,6 +557,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c8 = ws.cell(8, c_idx); c8.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
             if c_idx == date_start_col: set_border(c8, left=BS_MEDIUM)
             if c_idx == total_cols: set_border(c8, right=BS_MEDIUM)
+        ws.cell(header_start_row + 1, end_c_start - 1).border = Border(top=SIDE_THIN, bottom=SIDE_THIN, left=SIDE_THIN, right=SIDE_MEDIUM)
 
         # 內容資料 (共用邏輯)
         curr_row = header_start_row + 2; grouped_data = {"全家廣播": sorted([r for r in rows if r["media"]=="全家廣播"], key=lambda x:x['seconds']), "新鮮視": sorted([r for r in rows if r["media"]=="新鮮視"], key=lambda x:x['seconds']), "家樂福": sorted([r for r in rows if r["media"]=="家樂福"], key=lambda x:x['seconds'])}
