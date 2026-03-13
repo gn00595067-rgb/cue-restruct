@@ -6,10 +6,20 @@ Cue Sheet Pro (媒體排程生成系統)
 維護注意: 此系統依賴外部 Google Sheet 作為設定檔，以及 LibreOffice 進行 PDF 轉檔。
 """
 
+import calendar
 import streamlit as st
 import traceback
 import time
 from datetime import timedelta, datetime, date
+
+
+def _last_day_of_next_month():
+    """下一個月的最後一天（用於年約季約付款兌現日預設）。"""
+    today = date.today()
+    if today.month == 12:
+        return date(today.year + 1, 1, 31)
+    _, last = calendar.monthrange(today.year, today.month + 1)
+    return date(today.year, today.month + 1, last)
 
 # =============================================================================
 # 導入所有模組
@@ -309,7 +319,52 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
     if not waves:
         return
     _ensure_wave_combo_arrays()
-    rem = get_remarks_text(datetime.now() + timedelta(days=3), "2026年2月", datetime(2026, 3, 31))
+
+    # 備註 (Remarks)：可修改全文；付款兌現日預設為下個月最後一天
+    _def_pay = _last_day_of_next_month()
+    _def_sign = datetime.now() + timedelta(days=3)
+    if isinstance(_def_sign, datetime):
+        _def_sign = _def_sign.date()
+    aq_sign = st.session_state.get("aq_sign_deadline", _def_sign)
+    aq_bill = st.session_state.get("aq_billing_month", "2026年2月")
+    aq_pay = st.session_state.get("aq_payment_date", _def_pay)
+    _default_rem_lines = get_remarks_text(
+        aq_sign if isinstance(aq_sign, (datetime, type(_def_sign))) else _def_sign,
+        aq_bill,
+        aq_pay if isinstance(aq_pay, (datetime, type(_def_pay))) else _def_pay,
+    )
+    if "aq_remarks_text" not in st.session_state:
+        st.session_state.aq_remarks_text = "\n".join(_default_rem_lines)
+
+    with st.expander("📝 備註 (Remarks) — 可修改", expanded=False):
+        st.caption("回簽／請款月份／付款兌現日可調整；付款兌現日預設為「下一個月的最後一天」。下方備註全文可自由編輯。")
+        rc1, rc2, rc3 = st.columns(3)
+        with rc1:
+            aq_sign = st.date_input("回簽及進單期限", aq_sign, key="aq_sign_deadline")
+        with rc2:
+            aq_bill = st.text_input("請款月份", aq_bill, key="aq_billing_month", placeholder="例：2026年2月")
+        with rc3:
+            aq_pay = st.date_input("付款兌現日期（預設下月最後一天）", aq_pay, key="aq_payment_date")
+        if st.button("依上列日期重新產生備註", key="aq_rem_refresh"):
+            st.session_state.aq_remarks_text = "\n".join(get_remarks_text(
+                st.session_state.get("aq_sign_deadline", _def_sign),
+                st.session_state.get("aq_billing_month", "2026年2月"),
+                st.session_state.get("aq_payment_date", _def_pay),
+            ))
+            st.rerun()
+        aq_remarks_text = st.text_area(
+            "備註全文（可修改）",
+            value=st.session_state.get("aq_remarks_text", "\n".join(_default_rem_lines)),
+            height=220,
+            key="aq_remarks_text",
+            help="Remarks：本排程表經雙方確認後視同合約之延伸… 等內容可在此編輯",
+        )
+        st.session_state.aq_remarks_text = aq_remarks_text
+
+    rem = [line.strip() for line in (st.session_state.get("aq_remarks_text", "") or "").strip().split("\n") if line.strip()]
+    if not rem:
+        rem = get_remarks_text(aq_sign, aq_bill, aq_pay)
+
     st.markdown("---")
     st.subheader("📥 各波段下載（每波獨立 Excel / PDF）")
     for i, w in enumerate(waves):
