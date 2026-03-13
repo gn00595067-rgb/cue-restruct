@@ -32,7 +32,7 @@ from utils import (
 )
 from data_loader import load_config_from_cloud
 from calculator import calculate_plan_data, render_logic_panel
-from rebate import compute_rebate_rows, merge_rebate_into_rows, get_rebate_summary_text, compute_bonus_rebate_rows, compute_bonus_rebate_rows_from_allocation, get_rebate_qualified_platforms, get_rebate_qualification_detail
+from rebate import compute_rebate_rows, merge_rebate_into_rows, get_rebate_summary_text, compute_bonus_rebate_rows, compute_bonus_rebate_rows_from_allocation, get_rebate_qualified_platforms, get_rebate_qualification_detail, get_row_groups, compute_custom_bonus_rows
 from html_generator import generate_html_preview
 from excel_renderer import generate_excel_from_scratch
 from pdf_converter import xlsx_bytes_to_pdf_bytes
@@ -1160,22 +1160,49 @@ def main():
                                     b_sec_shares_cf[s] = st.session_state.get(f"bonus_cs_{s}", 0)
                                 bonus_config["家樂福"] = {"regions": ["全省"], "sec_shares": b_sec_shares_cf, "share": st.session_state.get("bonus_cf_share", 0)}
 
-            # 合併回饋與加贈：兩者皆依「原始 rows」的 index；同一 index 先插門檻回饋再插加贈回饋
+            # 業務加贈檔次：每個「同平台、同秒數、同區域」可選加贈、每日檔次、加贈日期區間
+            row_groups = get_row_groups(rows, REGIONS_ORDER)
+            custom_bonus_config = {}
+            with st.expander("📌 業務加贈檔次", expanded=False):
+                st.caption("在相同平台、相同秒數、相同區域的廣告下方可加一列「加贈檔次」，設定每日加贈幾檔及加贈日期區間（須在走期內）。")
+                for g in row_groups:
+                    media, sec, region_key = g["key"]
+                    skey = f"cb_{media}_{sec}_{region_key}".replace(" ", "_")
+                    label = f"【{media}】 {sec}秒 - {region_key}"
+                    st.markdown(f"**{label}**")
+                    c1, c2, c3, c4 = st.columns([1, 2, 2, 2])
+                    with c1:
+                        enabled = st.checkbox("加贈", value=st.session_state.get(f"cb_en_{skey}", False), key=f"cb_en_{skey}", label_visibility="collapsed")
+                    with c2:
+                        spots_per_day = st.number_input("每日加贈檔次", min_value=0, max_value=999, value=st.session_state.get(f"cb_spots_{skey}", 0) or 0, step=1, key=f"cb_spots_{skey}")
+                    with c3:
+                        b_start = st.date_input("加贈開始日", value=start_date, min_value=start_date, max_value=end_date, key=f"cb_start_{skey}")
+                    with c4:
+                        b_end = st.date_input("加贈結束日", value=end_date, min_value=start_date, max_value=end_date, key=f"cb_end_{skey}")
+                    if enabled and spots_per_day and b_start and b_end:
+                        custom_bonus_config[g["key"]] = {"enabled": True, "spots_per_day": spots_per_day, "date_start": b_start, "date_end": b_end}
+
+            # 合併回饋與加贈：兩者皆依「原始 rows」的 index；同一 index 先插門檻回饋再插業務加贈、主管加贈
             all_inserts = []
             bonus_rebate_logs = []
             if apply_rebate and rebate_inserts:
                 all_inserts.extend(rebate_inserts)
+            if custom_bonus_config:
+                custom_inserts, _ = compute_custom_bonus_rows(rows, custom_bonus_config, start_date, end_date, PRICING_DB, SEC_FACTORS, STORE_COUNTS_NUM, REGIONS_ORDER)
+                if custom_inserts:
+                    all_inserts.extend(custom_inserts)
             if bonus_pct_val is not None and bonus_pct_val > 0 and bonus_config:
                 rebate_budget = int(round(total_budget_input * bonus_pct_val / 100.0))
                 bonus_inserts, bonus_rebate_logs = compute_bonus_rebate_rows_from_allocation(bonus_config, rebate_budget, active_days, rows, PRICING_DB, SEC_FACTORS, STORE_COUNTS_NUM, REGIONS_ORDER)
                 if bonus_inserts:
                     all_inserts.extend(bonus_inserts)
             if all_inserts:
-                all_inserts.sort(key=lambda x: (x[0], 1 if x[1].get("is_bonus_rebate") else 0))  # 同 index 時門檻回饋在前
+                # 排序：同 index 時 門檻回饋(0) -> 業務加贈(1) -> 主管加贈(2)
+                all_inserts.sort(key=lambda x: (x[0], 0 if (x[1].get("is_rebate") and not x[1].get("is_bonus_rebate")) else (1 if x[1].get("is_custom_bonus") else 2)))
                 rows = merge_rebate_into_rows(rows, all_inserts)
             if use_date_segments and segments:
                 for row in rows:
-                    if row.get("is_rebate") and "schedule" in row:
+                    if (row.get("is_rebate") or row.get("is_custom_bonus")) and "schedule" in row:
                         row["schedule"] = expand_schedule_to_calendar(row["schedule"], segments, start_date, end_date)
             prod_cost = prod_cost_input 
             vat = int(round(final_budget_val * 0.05))

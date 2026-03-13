@@ -29,17 +29,18 @@ def _render_one_month_table(rows, days_in_month, month_start, month_end, full_to
     tbody = ""
     rows_sorted = sorted(rows, key=lambda x: ({"全家廣播": 1, "新鮮視": 2, "家樂福": 3}.get(x["media"], 9), x["seconds"]))
     daily_totals = [0] * days_in_month
-    for key, group in groupby(rows_sorted, lambda x: (x['media'], x['seconds'], x.get('nat_pkg_display', 0), x.get('is_rebate', False), x.get('rebate_type', ''), x.get('is_bonus_rebate', False))):
+    for key, group in groupby(rows_sorted, lambda x: (x['media'], x['seconds'], x.get('nat_pkg_display', 0), x.get('is_rebate', False), x.get('rebate_type', ''), x.get('is_bonus_rebate', False), x.get('is_custom_bonus', False))):
         g_list = list(group)
         g_size = len(g_list)
         is_pkg = g_list[0]['is_pkg_member']
         is_rebate = g_list[0].get('is_rebate', False)
-        pkg_label = g_list[0].get('pkg_display', '回饋') if is_rebate else None
+        is_custom_bonus = g_list[0].get('is_custom_bonus', False)
+        pkg_label = (g_list[0].get('pkg_display', '加贈') if is_custom_bonus else g_list[0].get('pkg_display', '回饋')) if (is_rebate or is_custom_bonus) else None
         for i, r in enumerate(g_list):
             tbody += "<tr>"
             rate = f"${r['rate_display']:,}" if isinstance(r['rate_display'], (int, float)) else r['rate_display']
             pkg_val_str = ""
-            if is_rebate:
+            if is_rebate or is_custom_bonus:
                 if i == 0:
                     pkg_val_str = f"<td style='text-align:center' rowspan='{g_size}'>{pkg_label}</td>"
                 else:
@@ -171,17 +172,18 @@ def generate_html_preview(rows, days_cnt, start_dt, end_dt, c_name, tax_id, p_di
     daily_totals = [0] * eff_days
 
     # 分組繪製 (處理合併儲存格邏輯)
-    for key, group in groupby(rows_sorted, lambda x: (x['media'], x['seconds'], x.get('nat_pkg_display', 0), x.get('is_rebate', False), x.get('rebate_type', ''), x.get('is_bonus_rebate', False))):
+    for key, group in groupby(rows_sorted, lambda x: (x['media'], x['seconds'], x.get('nat_pkg_display', 0), x.get('is_rebate', False), x.get('rebate_type', ''), x.get('is_bonus_rebate', False), x.get('is_custom_bonus', False))):
         g_list = list(group)
         g_size = len(g_list)
         is_pkg = g_list[0]['is_pkg_member']
         is_rebate = g_list[0].get('is_rebate', False)
-        pkg_label = g_list[0].get('pkg_display', '回饋') if is_rebate else None
+        is_custom_bonus = g_list[0].get('is_custom_bonus', False)
+        pkg_label = (g_list[0].get('pkg_display', '加贈') if is_custom_bonus else g_list[0].get('pkg_display', '回饋')) if (is_rebate or is_custom_bonus) else None
         for i, r in enumerate(g_list):
             tbody += "<tr>"
             rate = f"${r['rate_display']:,}" if isinstance(r['rate_display'], (int, float)) else r['rate_display']
             pkg_val_str = ""
-            if is_rebate:
+            if is_rebate or is_custom_bonus:
                 if i == 0:
                     pkg_val_str = f"<td style='text-align:center' rowspan='{g_size}'>{pkg_label}</td>"
                 else:

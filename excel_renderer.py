@@ -179,6 +179,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 if isinstance(rate, (int, float)): total_rate_sum += rate
                 if r.get("is_pkg_member"): pkg = r['nat_pkg_display'] if idx == 0 else None
                 elif r.get("is_rebate"): pkg = r.get("pkg_display", "回饋") if (idx == 0 or not data[idx-1].get("is_rebate") or data[idx-1].get("is_bonus_rebate") != r.get("is_bonus_rebate")) else None
+                elif r.get("is_custom_bonus"): pkg = r.get("pkg_display", "加贈") if (idx == 0 or not data[idx-1].get("is_custom_bonus")) else None
                 c_rate = ws.cell(curr_row, 6); c_rate.value = rate; c_rate.number_format = FMT_MONEY; c_rate.alignment = ALIGN_CENTER
                 if pkg is not None: c_pkg = ws.cell(curr_row, 7); c_pkg.value = pkg; c_pkg.alignment = ALIGN_CENTER; c_pkg.number_format = FMT_MONEY if isinstance(pkg, (int, float)) else '@'
                 row_sum = 0
@@ -202,6 +203,11 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 elif data[i].get("is_rebate"):
                     j = i
                     while j < len(data) and data[j].get("is_rebate") and data[j].get("is_bonus_rebate") == data[i].get("is_bonus_rebate"): j += 1
+                    if j > i + 1: ws.merge_cells(start_row=start_merge+i, start_column=7, end_row=start_merge+j-1, end_column=7)
+                    i = j
+                elif data[i].get("is_custom_bonus"):
+                    j = i
+                    while j < len(data) and data[j].get("is_custom_bonus"): j += 1
                     if j > i + 1: ws.merge_cells(start_row=start_merge+i, start_column=7, end_row=start_merge+j-1, end_column=7)
                     i = j
                 else:
@@ -373,6 +379,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 pkg = r['pkg_display']; 
                 if r.get('is_pkg_member'): pkg = r['nat_pkg_display'] if idx == 0 else None
                 elif r.get('is_rebate'): pkg = r.get('pkg_display', '回饋') if (idx == 0 or not data[idx-1].get('is_rebate') or data[idx-1].get('is_bonus_rebate') != r.get('is_bonus_rebate')) else None
+                elif r.get('is_custom_bonus'): pkg = r.get('pkg_display', '加贈') if (idx == 0 or not data[idx-1].get('is_custom_bonus')) else None
                 if pkg is not None: ws.cell(curr_row, end_c_start+2, pkg).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start+2).number_format = FMT_MONEY if isinstance(pkg, (int, float)) else '@'
                 for c_idx in range(1, total_cols + 1):
                     c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN
@@ -389,6 +396,11 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 elif data[i].get('is_rebate'):
                     j = i
                     while j < len(data) and data[j].get('is_rebate') and data[j].get('is_bonus_rebate') == data[i].get('is_bonus_rebate'): j += 1
+                    if j > i + 1: ws.merge_cells(start_row=start_merge+i, start_column=end_c_start+2, end_row=start_merge+j-1, end_column=end_c_start+2)
+                    i = j
+                elif data[i].get('is_custom_bonus'):
+                    j = i
+                    while j < len(data) and data[j].get('is_custom_bonus'): j += 1
                     if j > i + 1: ws.merge_cells(start_row=start_merge+i, start_column=end_c_start+2, end_row=start_merge+j-1, end_column=end_c_start+2)
                     i = j
                 else:
@@ -587,6 +599,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 pkg = r['pkg_display']; 
                 if r.get('is_pkg_member'): pkg = r['nat_pkg_display'] if idx == 0 else None
                 elif r.get('is_rebate'): pkg = r.get('pkg_display', '回饋') if (idx == 0 or not data[idx-1].get('is_rebate') or data[idx-1].get('is_bonus_rebate') != r.get('is_bonus_rebate')) else None
+                elif r.get('is_custom_bonus'): pkg = r.get('pkg_display', '加贈') if (idx == 0 or not data[idx-1].get('is_custom_bonus')) else None
                 if pkg is not None: ws.cell(curr_row, end_c_start+2, pkg).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start+2).number_format = FMT_MONEY if isinstance(pkg, (int, float)) else '@'
                 for c_idx in range(1, total_cols + 1):
                     c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN
@@ -603,6 +616,11 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 elif data[i].get('is_rebate'):
                     j = i
                     while j < len(data) and data[j].get('is_rebate') and data[j].get('is_bonus_rebate') == data[i].get('is_bonus_rebate'): j += 1
+                    if j > i + 1: ws.merge_cells(start_row=start_merge+i, start_column=end_c_start+2, end_row=start_merge+j-1, end_column=end_c_start+2)
+                    i = j
+                elif data[i].get('is_custom_bonus'):
+                    j = i
+                    while j < len(data) and data[j].get('is_custom_bonus'): j += 1
                     if j > i + 1: ws.merge_cells(start_row=start_merge+i, start_column=end_c_start+2, end_row=start_merge+j-1, end_column=end_c_start+2)
                     i = j
                 else:

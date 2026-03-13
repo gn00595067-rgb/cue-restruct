@@ -1005,6 +1005,136 @@ def compute_bonus_rebate_rows_from_allocation(bonus_config, rebate_budget, activ
     return (result, bonus_rebate_logs)
 
 
+def get_row_groups(rows, regions_order):
+    """
+    從 rows 取得「同平台、同秒數、同區域」群組，供業務加贈檔次 UI 使用。
+    回傳: list of dict {
+        "key": (media, seconds, region_key),
+        "last_index": int,
+        "first_row": row_dict,
+        "display_regions": list of str (該群組要顯示的區域列，全省為 6 區、單區/家樂福為 1 區),
+    }
+    """
+    groups = []
+    i = 0
+    while i < len(rows):
+        r = rows[i]
+        media = r.get("media", "")
+        sec = r.get("seconds", 0)
+        if r.get("is_pkg_member"):
+            # 全省：同一 media+sec 的連續 is_pkg_member 為一組
+            j = i
+            while j < len(rows) and rows[j].get("is_pkg_member") and rows[j].get("media") == media and rows[j].get("seconds") == sec:
+                j += 1
+            display_regions = [rows[k].get("region") for k in range(i, j)]
+            groups.append({
+                "key": (media, sec, "全省"),
+                "last_index": j - 1,
+                "first_row": rows[i],
+                "display_regions": display_regions or regions_order[:6],
+            })
+            i = j
+        else:
+            groups.append({
+                "key": (media, sec, r.get("region", "")),
+                "last_index": i,
+                "first_row": r,
+                "display_regions": [r.get("region", "")],
+            })
+            i += 1
+    return groups
+
+
+def compute_custom_bonus_rows(rows, custom_bonus_config, campaign_start, campaign_end, pricing_db, sec_factors, store_counts_num, regions_order):
+    """
+    依業務設定的加贈檔次（每組可選：是否加贈、每日檔次、加贈日期區間）產出要插入的列。
+    custom_bonus_config: dict, key = (media, seconds, region_key) -> {
+        "enabled": bool,
+        "spots_per_day": int,
+        "date_start": date,
+        "date_end": date,
+    }
+    campaign_start, campaign_end: 走期起迄 (date)。
+    回傳: (inserts, [])，inserts 為 (insert_after_index, row) 列表。
+    """
+    from datetime import timedelta
+    result = []
+    groups = get_row_groups(rows, regions_order)
+    days_count = (campaign_end - campaign_start).days + 1
+    for g in groups:
+        key = g["key"]
+        cfg = custom_bonus_config.get(key)
+        if not cfg or not cfg.get("enabled") or not cfg.get("spots_per_day"):
+            continue
+        spots_per_day = max(0, int(cfg.get("spots_per_day", 0)))
+        b_start = cfg.get("date_start")
+        b_end = cfg.get("date_end")
+        if not b_start or not b_end:
+            continue
+        # 限制在走期內
+        b_start = max(b_start, campaign_start)
+        b_end = min(b_end, campaign_end)
+        if b_start > b_end:
+            continue
+        # 建 schedule：僅在 [b_start, b_end] 內有檔次
+        schedule = []
+        for d in range(days_count):
+            day_date = campaign_start + timedelta(days=d)
+            schedule.append(spots_per_day if b_start <= day_date <= b_end else 0)
+        total_spots = sum(schedule)
+        if total_spots == 0:
+            continue
+        first = g["first_row"]
+        media, sec, region_key = key
+        daypart = first.get("daypart", "")
+        display_regions = g["display_regions"]
+        # 定價用於 rate_display；加贈列 Package 顯示「加贈」
+        db = pricing_db.get(media, {})
+        std_spots_ref = 480
+        if isinstance(db, dict):
+            if "Std_Spots" in db:
+                std_spots_ref = db["Std_Spots"]
+            elif "量販_全省" in db and isinstance(db["量販_全省"], dict):
+                std_spots_ref = db["量販_全省"].get("Std_Spots", 420)
+        factor = get_sec_factor(media, sec, sec_factors)
+        # 家樂福 region 對應 db key
+        cf_region_key = {"全省量販": "量販_全省", "全省超市": "超市_全省"}
+        for disp_r in display_regions:
+            list_price = None
+            if isinstance(db, dict):
+                if media == "家樂福":
+                    db_key = cf_region_key.get(disp_r, disp_r)
+                    ent = db.get(db_key)
+                    if isinstance(ent, dict):
+                        list_price = ent.get("List")
+                else:
+                    ent = db.get(disp_r) or db.get("全省")
+                    if isinstance(ent, (list, tuple)):
+                        list_price = ent[0] if len(ent) else None
+                    else:
+                        list_price = ent
+            unit_rate = int((list_price / std_spots_ref) * factor) if list_price and std_spots_ref else 0
+            rate_display = unit_rate * total_spots
+            bonus_row = {
+                "media": media,
+                "region": disp_r,
+                "program_num": "加贈檔次",
+                "daypart": daypart,
+                "seconds": sec,
+                "spots": total_spots,
+                "schedule": schedule[:],
+                "rate_display": rate_display,
+                "pkg_display": "加贈",
+                "is_pkg_member": False,
+                "nat_pkg_display": 0,
+                "is_rebate": False,
+                "is_custom_bonus": True,
+            }
+            result.append((g["last_index"], bonus_row))
+    # 同 last_index 可能多列（全省 6 區），已依 display_regions 逐一 append
+    return (result, [])
+
+
 def merge_rebate_into_rows(rows, rebate_inserts):
     """將回饋列依 insert_after_index 由小到大插入（同一 index 可多列）。"""
     if not rebate_inserts:
