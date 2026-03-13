@@ -46,6 +46,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
     ALIGN_RIGHT = Alignment(horizontal='right', vertical='center', wrap_text=True)
     FONT_STD, FONT_BOLD, FONT_TITLE = Font(name=FONT_MAIN, size=12), Font(name=FONT_MAIN, size=14, bold=True), Font(name=FONT_MAIN, size=48, bold=True)
     FONT_HEADER, FONT_DAILY, FONT_REMARKS, FONT_SIGN = Font(name=FONT_MAIN, size=20), Font(name=FONT_MAIN, size=16), Font(name=FONT_MAIN, size=18), Font(name=FONT_MAIN, size=20)
+    FONT_16, FONT_16_BOLD = Font(name=FONT_MAIN, size=16), Font(name=FONT_MAIN, size=16, bold=True)
     FONT_WEEKEND = Font(name=FONT_MAIN, size=16, bold=True, color="0066CC")
     FILL_WEEKEND = PatternFill(start_color="FFFFCC", end_color="FFFFCC", fill_type="solid")
     
@@ -104,10 +105,11 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         
         infos = [("A3", "客戶名稱：", client_name), ("A4", "Product：", p_str), ("A5", "Period :", f"{start_dt.strftime('%Y. %m. %d')} - {end_dt.strftime('%Y. %m. %d')}"), ("A6", "Medium :", medium_str)]
         pos_to_row = {"A3": 3, "A4": 4, "A5": 5, "A6": 6}
+        FONT_20 = Font(name=FONT_MAIN, size=20)
         for pos, lbl, val in infos:
             r_num = R(pos_to_row.get(pos, 3))
-            c = ws.cell(r_num, 1); c.value = lbl; c.font = FONT_HEADER; c.alignment = Alignment(vertical='center')
-            c2 = ws.cell(c.row, 2); c2.value = val; c2.font = FONT_HEADER; c2.alignment = Alignment(vertical='center')
+            c = ws.cell(r_num, 1); c.value = lbl; c.font = FONT_20; c.alignment = Alignment(vertical='center')
+            c2 = ws.cell(c.row, 2); c2.value = val; c2.font = FONT_20; c2.alignment = Alignment(vertical='center')
         
         for c_idx in range(1, total_cols + 1): set_border(ws.cell(R(3), c_idx), top=BS_MEDIUM)
         # 日期列上方依「日曆月」分組顯示「X月」（跨月時 4月、5月 等都會顯示）
@@ -132,7 +134,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         for col, txt in headers:
             col_idx = column_index_from_string(col)
             ws.merge_cells(f"{col}{R(7)}:{col}{R(8)}"); c7 = ws.cell(R(7), col_idx); c7.value = txt; c8 = ws.cell(R(8), col_idx)
-            c7.font = FONT_BOLD; c7.alignment = ALIGN_CENTER; c7.border = BORDER_ALL_THIN; c8.border = BORDER_ALL_THIN
+            c7.font = FONT_16_BOLD; c7.alignment = ALIGN_CENTER; c7.border = BORDER_ALL_THIN; c8.border = BORDER_ALL_THIN; c8.font = FONT_16
             set_border(c7, top=BS_MEDIUM); set_border(c8, bottom=BS_MEDIUM)
 
         # 日期標頭 (自動計算週六日底色)
@@ -143,14 +145,14 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c_d.value = curr; c_d.number_format = 'm/d'; c_w.value = ["一","二","三","四","五","六","日"][curr.weekday()]
             if curr.weekday() >= 5: c_w.fill = FILL_WEEKEND
             curr += timedelta(days=1)
-            c_d.font = FONT_STD; c_w.font = FONT_STD; c_d.alignment = ALIGN_CENTER; c_w.alignment = ALIGN_CENTER
+            c_d.font = FONT_16; c_w.font = FONT_16; c_d.alignment = ALIGN_CENTER; c_w.alignment = ALIGN_CENTER
             c_d.border = BORDER_ALL_THIN; c_w.border = BORDER_ALL_THIN
             set_border(c_d, top=BS_MEDIUM); set_border(c_w, bottom=BS_MEDIUM)
 
         ws.cell(R(8), spots_col_idx - 1).border = Border(top=SIDE_THIN, bottom=SIDE_MEDIUM, left=SIDE_THIN, right=SIDE_MEDIUM)
         c_spots_7 = ws.cell(R(7), spots_col_idx); c_spots_7.value = "檔次"; c_spots_8 = ws.cell(R(8), spots_col_idx)
         ws.merge_cells(start_row=R(7), start_column=spots_col_idx, end_row=R(8), end_column=spots_col_idx)
-        c_spots_7.font = FONT_BOLD; c_spots_7.alignment = ALIGN_CENTER; c_spots_7.border = BORDER_ALL_THIN; c_spots_8.border = BORDER_ALL_THIN
+        c_spots_7.font = FONT_16_BOLD; c_spots_7.alignment = ALIGN_CENTER; c_spots_7.border = BORDER_ALL_THIN; c_spots_8.border = BORDER_ALL_THIN; c_spots_8.font = FONT_16
         set_border(c_spots_7, top=BS_MEDIUM, left=BS_MEDIUM); set_border(c_spots_8, bottom=BS_MEDIUM, left=BS_MEDIUM)
         set_border(ws.cell(R(7), 1), right=BS_MEDIUM); set_border(ws.cell(R(8), 1), right=BS_MEDIUM)
 
@@ -183,7 +185,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 for d_idx in range(eff_days):
                     if d_idx < len(r["schedule"]): val = r["schedule"][d_idx]; row_sum += (val if isinstance(val, (int, float)) else 0); c_s = ws.cell(curr_row, 8+d_idx); c_s.value = "" if (val == 0 or val is None) else val; c_s.number_format = FMT_NUMBER; c_s.alignment = ALIGN_CENTER; c_s.font = FONT_WEEKEND if (start_dt + timedelta(days=d_idx)).weekday() >= 5 else FONT_DAILY
                 ws.cell(curr_row, spots_col_idx, row_sum).alignment = ALIGN_CENTER
-                for c_idx in range(1, total_cols + 1): cell = ws.cell(curr_row, c_idx); cell.border = BORDER_ALL_THIN; (cell.font := FONT_STD) if c_idx <= 7 or c_idx == spots_col_idx else None
+                for c_idx in range(1, total_cols + 1): cell = ws.cell(curr_row, c_idx); cell.border = BORDER_ALL_THIN; (cell.font := FONT_16) if c_idx <= 7 or c_idx == spots_col_idx else None
                 curr_row += 1
 
             # 合併相同媒體名稱的欄位；Column 7 依 runs (全省塊、回饋塊) 分別合併
@@ -214,16 +216,16 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
 
         # 總計列
         ws.row_dimensions[curr_row].height = 30
-        c_lbl = ws.cell(curr_row, 5, "Total"); c_lbl.alignment = ALIGN_CENTER; c_lbl.font = FONT_BOLD
-        c_rate_sum = ws.cell(curr_row, 6, total_rate_sum); c_rate_sum.number_format = FMT_MONEY; c_rate_sum.alignment = ALIGN_CENTER; c_rate_sum.font = FONT_BOLD
+        c_lbl = ws.cell(curr_row, 5, "Total"); c_lbl.alignment = ALIGN_CENTER; c_lbl.font = FONT_16_BOLD
+        c_rate_sum = ws.cell(curr_row, 6, total_rate_sum); c_rate_sum.number_format = FMT_MONEY; c_rate_sum.alignment = ALIGN_CENTER; c_rate_sum.font = FONT_16_BOLD
         pkg_total_val = (pkg_total if pkg_total is not None else budget)
-        c_val = ws.cell(curr_row, 7, pkg_total_val); c_val.number_format = FMT_MONEY; c_val.alignment = ALIGN_CENTER; c_val.font = FONT_BOLD
+        c_val = ws.cell(curr_row, 7, pkg_total_val); c_val.number_format = FMT_MONEY; c_val.alignment = ALIGN_CENTER; c_val.font = FONT_16_BOLD
         total_spots_all = 0
         for d_idx in range(eff_days):
             daily_sum = sum([r['schedule'][d_idx] if d_idx < len(r['schedule']) and isinstance(r['schedule'][d_idx], (int, float)) else 0 for r in rows])
             total_spots_all += daily_sum
             c = ws.cell(curr_row, 8+d_idx); c.value = "" if daily_sum == 0 else daily_sum; c.alignment = ALIGN_CENTER; c.font = FONT_WEEKEND if (start_dt + timedelta(days=d_idx)).weekday() >= 5 else FONT_DAILY; c.number_format = FMT_NUMBER
-        ws.cell(curr_row, spots_col_idx, total_spots_all).alignment = ALIGN_CENTER; ws.cell(curr_row, spots_col_idx).font = FONT_STD
+        ws.cell(curr_row, spots_col_idx, total_spots_all).alignment = ALIGN_CENTER; ws.cell(curr_row, spots_col_idx).font = FONT_16
         for c_idx in range(1, total_cols + 1): set_border(ws.cell(curr_row, c_idx), top=BS_MEDIUM, bottom=BS_MEDIUM, left=BS_THIN, right=BS_THIN)
         set_border(ws.cell(curr_row, 1), left=BS_MEDIUM, right=BS_MEDIUM); set_border(ws.cell(curr_row, spots_col_idx), left=BS_MEDIUM, right=BS_MEDIUM)
         ws.cell(curr_row, spots_col_idx - 1).border = Border(top=SIDE_MEDIUM, bottom=SIDE_MEDIUM, left=SIDE_THIN, right=SIDE_MEDIUM)
@@ -235,8 +237,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         for label, val in footer_items:
             if label == "媒體": continue 
             ws.row_dimensions[curr_row].height = 30
-            c_l = ws.cell(curr_row, 6); c_l.value = label; c_l.alignment = ALIGN_LEFT; c_l.font = FONT_STD
-            c_v = ws.cell(curr_row, 7); c_v.value = val; c_v.number_format = FMT_MONEY; c_v.alignment = ALIGN_CENTER; c_v.font = FONT_STD
+            c_l = ws.cell(curr_row, 6); c_l.value = label; c_l.alignment = ALIGN_LEFT; c_l.font = FONT_16
+            c_v = ws.cell(curr_row, 7); c_v.value = val; c_v.number_format = FMT_MONEY; c_v.alignment = ALIGN_CENTER; c_v.font = FONT_16
             set_border(c_l, left=BS_MEDIUM, top=BS_THIN, bottom=BS_THIN, right=BS_THIN)
             set_border(c_v, right=BS_MEDIUM, top=BS_THIN, bottom=BS_THIN, left=BS_THIN)
             if label == "Grand Total":
@@ -253,18 +255,19 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c = ws.cell(curr_row, 1); c.value = rm; c.font = Font(name=FONT_MAIN, size=18, color="FF0000" if is_red else "000000")
 
         curr_row += 2; sig_start = curr_row
-        ws.merge_cells(start_row=sig_start, start_column=1, end_row=sig_start, end_column=7); ws.cell(sig_start, 1, "甲    方：東吳廣告股份有限公司").alignment = ALIGN_LEFT; ws.cell(sig_start, 1).font = FONT_SIGN
-        ws.merge_cells(start_row=sig_start+1, start_column=1, end_row=sig_start+1, end_column=7); ws.cell(sig_start+1, 1, "統一編號：20935458").alignment = ALIGN_LEFT; ws.cell(sig_start+1, 1).font = FONT_SIGN
-        ws.merge_cells(start_row=sig_start+2, start_column=1, end_row=sig_start+2, end_column=7); ws.cell(sig_start+2, 1, sales_person).alignment = ALIGN_LEFT; ws.cell(sig_start+2, 1).font = FONT_SIGN
+        _sig_font = Font(name=FONT_MAIN, size=20)
+        ws.merge_cells(start_row=sig_start, start_column=1, end_row=sig_start, end_column=7); ws.cell(sig_start, 1, "甲    方：東吳廣告股份有限公司").alignment = ALIGN_LEFT; ws.cell(sig_start, 1).font = _sig_font
+        ws.merge_cells(start_row=sig_start+1, start_column=1, end_row=sig_start+1, end_column=7); ws.cell(sig_start+1, 1, "統一編號：20935458").alignment = ALIGN_LEFT; ws.cell(sig_start+1, 1).font = _sig_font
+        ws.merge_cells(start_row=sig_start+2, start_column=1, end_row=sig_start+2, end_column=7); ws.cell(sig_start+2, 1, sales_person).alignment = ALIGN_LEFT; ws.cell(sig_start+2, 1).font = _sig_font
         
         right_start_col = 20 # Column T
-        ws.merge_cells(start_row=sig_start, start_column=right_start_col, end_row=sig_start, end_column=right_start_col+7); ws.cell(sig_start, right_start_col, f"乙    方：{client_name}").alignment = ALIGN_LEFT; ws.cell(sig_start, right_start_col).font = FONT_SIGN
+        ws.merge_cells(start_row=sig_start, start_column=right_start_col, end_row=sig_start, end_column=right_start_col+7); ws.cell(sig_start, right_start_col, f"乙    方：{client_name}").alignment = ALIGN_LEFT; ws.cell(sig_start, right_start_col).font = _sig_font
         
         # 填入 Excel 統編 (東吳格式)
         ws.merge_cells(start_row=sig_start+1, start_column=right_start_col, end_row=sig_start+1, end_column=right_start_col+7)
-        ws.cell(sig_start+1, right_start_col, f"統一編號：{tax_id}").alignment = ALIGN_LEFT; ws.cell(sig_start+1, right_start_col).font = FONT_SIGN
+        ws.cell(sig_start+1, right_start_col, f"統一編號：{tax_id}").alignment = ALIGN_LEFT; ws.cell(sig_start+1, right_start_col).font = _sig_font
         
-        ws.merge_cells(start_row=sig_start+2, start_column=right_start_col, end_row=sig_start+2, end_column=right_start_col+7); ws.cell(sig_start+2, right_start_col, "客戶簽章：").alignment = ALIGN_LEFT; ws.cell(sig_start+2, right_start_col).font = FONT_SIGN
+        ws.merge_cells(start_row=sig_start+2, start_column=right_start_col, end_row=sig_start+2, end_column=right_start_col+7); ws.cell(sig_start+2, right_start_col, "客戶簽章：").alignment = ALIGN_LEFT; ws.cell(sig_start+2, right_start_col).font = _sig_font
         for c_idx in range(1, total_cols + 1): set_border(ws.cell(sig_start, c_idx), top=BS_THIN)
         return curr_row + 3
 
@@ -314,16 +317,16 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         
         header_start_row = 7; headers = ["頻道", "播出地區", "播出店數", "播出時間", "秒數\n規格"]
         for i, h in enumerate(headers):
-            c_idx = i + 1; ws.merge_cells(start_row=header_start_row, start_column=c_idx, end_row=header_start_row+1, end_column=c_idx); c = ws.cell(header_start_row, c_idx); c.value = h; c.font = FONT_BOLD; c.alignment = ALIGN_CENTER
+            c_idx = i + 1; ws.merge_cells(start_row=header_start_row, start_column=c_idx, end_row=header_start_row+1, end_column=c_idx); c = ws.cell(header_start_row, c_idx); c.value = h; c.font = FONT_16_BOLD; c.alignment = ALIGN_CENTER
             t, b, l, r = BS_MEDIUM, BS_THIN, BS_THIN, BS_THIN; 
             if c_idx == 1: l = BS_MEDIUM
-            c.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=l), right=Side(style=r))
+            c.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).font = FONT_16
 
         curr = start_dt
         for i in range(eff_days):
-            col_idx = 6 + i; c7 = ws.cell(header_start_row, col_idx); c7.value = curr.day; c7.font = FONT_BOLD; c7.alignment = ALIGN_CENTER; c7.border = BORDER_ALL_MEDIUM
+            col_idx = 6 + i; c7 = ws.cell(header_start_row, col_idx); c7.value = curr.day; c7.font = FONT_16_BOLD; c7.alignment = ALIGN_CENTER; c7.border = BORDER_ALL_MEDIUM
             c7.border = Border(top=Side(style=BS_MEDIUM), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
-            c8 = ws.cell(header_start_row+1, col_idx); c8.value = ["日","一","二","三","四","五","六"][(curr.weekday()+1)%7]; c8.font = FONT_BOLD; c8.alignment = ALIGN_CENTER
+            c8 = ws.cell(header_start_row+1, col_idx); c8.value = ["日","一","二","三","四","五","六"][(curr.weekday()+1)%7]; c8.font = FONT_16; c8.alignment = ALIGN_CENTER
             style_left = BS_MEDIUM if col_idx == 6 else BS_THIN
             c8.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=style_left), right=Side(style=BS_THIN)); 
             if curr.weekday() >= 5: c8.fill = FILL_WEEKEND
@@ -331,17 +334,17 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
 
         end_headers = ["檔次", "定價", "專案價"]; 
         for i, h in enumerate(end_headers):
-            c_idx = end_c_start + i; ws.merge_cells(start_row=header_start_row, start_column=c_idx, end_row=header_start_row+1, end_column=c_idx); c = ws.cell(header_start_row, c_idx); c.value = h; c.font = FONT_BOLD; c.alignment = ALIGN_CENTER
+            c_idx = end_c_start + i; ws.merge_cells(start_row=header_start_row, start_column=c_idx, end_row=header_start_row+1, end_column=c_idx); c = ws.cell(header_start_row, c_idx); c.value = h; c.font = FONT_16_BOLD; c.alignment = ALIGN_CENTER
             t, b, l, r = BS_MEDIUM, BS_THIN, BS_THIN, BS_THIN; 
             if c_idx == total_cols: r = BS_MEDIUM
-            c.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=l), right=Side(style=r))
+            c.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).font = FONT_16
 
         date_start_col = 6
         for c_idx in range(date_start_col, total_cols + 1):
             c7 = ws.cell(header_start_row, c_idx); c7.border = Border(top=Side(style=BS_MEDIUM), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
             if c_idx == date_start_col: set_border(c7, left=BS_MEDIUM)
             if c_idx == total_cols: set_border(c7, right=BS_MEDIUM)
-            c8 = ws.cell(8, c_idx); c8.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
+            c8 = ws.cell(8, c_idx); c8.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN)); c8.font = FONT_16
             if c_idx == date_start_col: set_border(c8, left=BS_MEDIUM)
             if c_idx == total_cols: set_border(c8, right=BS_MEDIUM)
         ws.cell(header_start_row + 1, end_c_start - 1).border = Border(top=SIDE_THIN, bottom=SIDE_THIN, left=SIDE_THIN, right=SIDE_MEDIUM)
@@ -368,7 +371,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 if r.get('is_pkg_member'): pkg = r['nat_pkg_display'] if idx == 0 else None
                 elif r.get('is_rebate'): pkg = r.get('pkg_display', '回饋') if (idx == 0 or not data[idx-1].get('is_rebate') or data[idx-1].get('is_bonus_rebate') != r.get('is_bonus_rebate')) else None
                 if pkg is not None: ws.cell(curr_row, end_c_start+2, pkg).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start+2).number_format = FMT_MONEY if isinstance(pkg, (int, float)) else '@'
-                for c_idx in range(1, total_cols + 1): c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN; (c.font := FONT_STD) if (c_idx < 6 or c_idx >= end_c_start) else None
+                for c_idx in range(1, total_cols + 1): c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN; (c.font := FONT_16) if (c_idx < 6 or c_idx >= end_c_start) else None
                 set_border(ws.cell(curr_row, 5), right=BS_MEDIUM); curr_row += 1
             ws.merge_cells(start_row=start_merge, start_column=1, end_row=curr_row-1, end_column=1)
             i = 0
@@ -387,13 +390,13 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                     i += 1
             draw_outer_border_fast(ws, start_merge, curr_row-1, 1, total_cols)
 
-        ws.row_dimensions[curr_row].height = 54; ws.cell(curr_row, 3, total_store_count).number_format = FMT_NUMBER; ws.cell(curr_row, 3).alignment = ALIGN_CENTER; ws.cell(curr_row, 3).font = FONT_BOLD
-        ws.cell(curr_row, 5, "Total").alignment = ALIGN_CENTER; ws.cell(curr_row, 5).font = FONT_BOLD
+        ws.row_dimensions[curr_row].height = 54; ws.cell(curr_row, 3, total_store_count).number_format = FMT_NUMBER; ws.cell(curr_row, 3).alignment = ALIGN_CENTER; ws.cell(curr_row, 3).font = FONT_16_BOLD
+        ws.cell(curr_row, 5, "Total").alignment = ALIGN_CENTER; ws.cell(curr_row, 5).font = FONT_16_BOLD
         for d_idx in range(eff_days): daily_sum = sum([r['schedule'][d_idx] if d_idx < len(r['schedule']) and isinstance(r['schedule'][d_idx], (int, float)) else 0 for r in rows]); c = ws.cell(curr_row, 6+d_idx); c.value = "" if daily_sum == 0 else daily_sum; c.alignment = ALIGN_CENTER; c.font = FONT_WEEKEND if (start_dt + timedelta(days=d_idx)).weekday() >= 5 else FONT_DAILY
-        ws.cell(curr_row, end_c_start, sum([sum(r['schedule']) for r in rows])).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start).font = FONT_BOLD
-        ws.cell(curr_row, end_c_start+1, total_list_sum).number_format = FMT_MONEY; ws.cell(curr_row, end_c_start+1).font = FONT_BOLD; ws.cell(curr_row, end_c_start+1).alignment = ALIGN_CENTER
+        ws.cell(curr_row, end_c_start, sum([sum(r['schedule']) for r in rows])).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start).font = FONT_16_BOLD
+        ws.cell(curr_row, end_c_start+1, total_list_sum).number_format = FMT_MONEY; ws.cell(curr_row, end_c_start+1).font = FONT_16_BOLD; ws.cell(curr_row, end_c_start+1).alignment = ALIGN_CENTER
         pkg_total_val = (pkg_total if pkg_total is not None else budget)
-        ws.cell(curr_row, end_c_start+2, pkg_total_val).number_format = FMT_MONEY; ws.cell(curr_row, end_c_start+2).font = FONT_BOLD; ws.cell(curr_row, end_c_start+2).alignment = ALIGN_CENTER
+        ws.cell(curr_row, end_c_start+2, pkg_total_val).number_format = FMT_MONEY; ws.cell(curr_row, end_c_start+2).font = FONT_16_BOLD; ws.cell(curr_row, end_c_start+2).alignment = ALIGN_CENTER
         for c_idx in range(1, total_cols+1): ws.cell(curr_row, c_idx).border = BORDER_ALL_THIN
         draw_outer_border_fast(ws, curr_row, curr_row, 1, total_cols)
         for c_idx in range(1, total_cols+1): set_border(ws.cell(curr_row, c_idx), bottom=BS_MEDIUM)
@@ -404,8 +407,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         vat = int(budget * 0.05); grand_total = budget + vat
         footer_stack = [("製作", prod), ("5% VAT", vat), ("Grand Total", grand_total)]
         for lbl, val in footer_stack:
-            ws.row_dimensions[curr_row].height = 30; c_l = ws.cell(curr_row, end_c_start+1); c_l.value = lbl; c_l.alignment = ALIGN_RIGHT; c_l.font = FONT_STD
-            c_v = ws.cell(curr_row, end_c_start+2); c_v.value = val; c_v.number_format = FMT_MONEY; c_v.alignment = ALIGN_CENTER; c_v.font = FONT_BOLD 
+            ws.row_dimensions[curr_row].height = 30; c_l = ws.cell(curr_row, end_c_start+1); c_l.value = lbl; c_l.alignment = ALIGN_RIGHT; c_l.font = FONT_16
+            c_v = ws.cell(curr_row, end_c_start+2); c_v.value = val; c_v.number_format = FMT_MONEY; c_v.alignment = ALIGN_CENTER; c_v.font = FONT_16 
             t, b, l, r = BS_THIN, BS_THIN, BS_MEDIUM, BS_THIN; 
             if lbl == "Grand Total": b = BS_MEDIUM 
             c_l.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r))
@@ -528,31 +531,31 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         # 表頭 (舊版樣式)
         header_start_row = 6; headers = ["頻道", "播出地區", "播出店數", "播出時間", "秒數\n規格"]
         for i, h in enumerate(headers):
-            c_idx = i + 1; ws.merge_cells(start_row=header_start_row, start_column=c_idx, end_row=header_start_row+1, end_column=c_idx); c = ws.cell(header_start_row, c_idx); c.value = h; c.font = FONT_BOLD; c.alignment = ALIGN_CENTER
+            c_idx = i + 1; ws.merge_cells(start_row=header_start_row, start_column=c_idx, end_row=header_start_row+1, end_column=c_idx); c = ws.cell(header_start_row, c_idx); c.value = h; c.font = FONT_16_BOLD; c.alignment = ALIGN_CENTER
             t, b, l, r = BS_MEDIUM, BS_THIN, BS_THIN, BS_THIN; 
             if c_idx == 1: l = BS_MEDIUM
-            c.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=l), right=Side(style=r))
+            c.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).font = FONT_16
 
         curr = start_dt
         for i in range(eff_days):
-            col_idx = 6 + i; c6 = ws.cell(header_start_row, col_idx); c6.value = curr.day; c6.font = FONT_BOLD; c6.alignment = ALIGN_CENTER; c6.border = BORDER_ALL_MEDIUM; c6.border = Border(top=Side(style=BS_MEDIUM), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
-            c7 = ws.cell(header_start_row+1, col_idx); c7.value = ["日","一","二","三","四","五","六"][(curr.weekday()+1)%7]; c7.font = FONT_BOLD; c7.alignment = ALIGN_CENTER; style_left = BS_MEDIUM if col_idx == 6 else BS_THIN; c7.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=style_left), right=Side(style=BS_THIN))
+            col_idx = 6 + i; c6 = ws.cell(header_start_row, col_idx); c6.value = curr.day; c6.font = FONT_16_BOLD; c6.alignment = ALIGN_CENTER; c6.border = BORDER_ALL_MEDIUM; c6.border = Border(top=Side(style=BS_MEDIUM), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
+            c7 = ws.cell(header_start_row+1, col_idx); c7.value = ["日","一","二","三","四","五","六"][(curr.weekday()+1)%7]; c7.font = FONT_16; c7.alignment = ALIGN_CENTER; style_left = BS_MEDIUM if col_idx == 6 else BS_THIN; c7.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=style_left), right=Side(style=BS_THIN))
             if curr.weekday() >= 5: c7.fill = FILL_WEEKEND
             curr += timedelta(days=1)
 
         end_headers = ["檔次", "定價", "專案價"]; 
         for i, h in enumerate(end_headers):
-            c_idx = end_c_start + i; ws.merge_cells(start_row=header_start_row, start_column=c_idx, end_row=header_start_row+1, end_column=c_idx); c = ws.cell(header_start_row, c_idx); c.value = h; c.font = FONT_BOLD; c.alignment = ALIGN_CENTER
+            c_idx = end_c_start + i; ws.merge_cells(start_row=header_start_row, start_column=c_idx, end_row=header_start_row+1, end_column=c_idx); c = ws.cell(header_start_row, c_idx); c.value = h; c.font = FONT_16_BOLD; c.alignment = ALIGN_CENTER
             t, b, l, r = BS_MEDIUM, BS_THIN, BS_THIN, BS_THIN; 
             if c_idx == total_cols: r = BS_MEDIUM
-            c.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=l), right=Side(style=r))
+            c.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=l), right=Side(style=r)); ws.cell(header_start_row+1, c_idx).font = FONT_16
 
         date_start_col = 6
         for c_idx in range(date_start_col, total_cols + 1):
             c7 = ws.cell(header_start_row, c_idx); c7.border = Border(top=Side(style=BS_MEDIUM), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
             if c_idx == date_start_col: set_border(c7, left=BS_MEDIUM)
             if c_idx == total_cols: set_border(c7, right=BS_MEDIUM)
-            c8 = ws.cell(8, c_idx); c8.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN))
+            c8 = ws.cell(8, c_idx); c8.border = Border(top=Side(style=BS_THIN), bottom=Side(style=BS_THIN), left=Side(style=BS_THIN), right=Side(style=BS_THIN)); c8.font = FONT_16
             if c_idx == date_start_col: set_border(c8, left=BS_MEDIUM)
             if c_idx == total_cols: set_border(c8, right=BS_MEDIUM)
         ws.cell(header_start_row + 1, end_c_start - 1).border = Border(top=SIDE_THIN, bottom=SIDE_THIN, left=SIDE_THIN, right=SIDE_MEDIUM)
@@ -579,7 +582,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 if r.get('is_pkg_member'): pkg = r['nat_pkg_display'] if idx == 0 else None
                 elif r.get('is_rebate'): pkg = r.get('pkg_display', '回饋') if (idx == 0 or not data[idx-1].get('is_rebate') or data[idx-1].get('is_bonus_rebate') != r.get('is_bonus_rebate')) else None
                 if pkg is not None: ws.cell(curr_row, end_c_start+2, pkg).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start+2).number_format = FMT_MONEY if isinstance(pkg, (int, float)) else '@'
-                for c_idx in range(1, total_cols + 1): c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN; (c.font := FONT_STD) if (c_idx < 6 or c_idx >= end_c_start) else None
+                for c_idx in range(1, total_cols + 1): c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN; (c.font := FONT_16) if (c_idx < 6 or c_idx >= end_c_start) else None
                 set_border(ws.cell(curr_row, 5), right=BS_MEDIUM); curr_row += 1
             ws.merge_cells(start_row=start_merge, start_column=1, end_row=curr_row-1, end_column=1)
             i = 0
@@ -599,13 +602,13 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             draw_outer_border_fast(ws, start_merge, curr_row-1, 1, total_cols)
 
         # 總計行 (共用邏輯)
-        ws.row_dimensions[curr_row].height = 54; ws.cell(curr_row, 3, total_store_count).number_format = FMT_NUMBER; ws.cell(curr_row, 3).alignment = ALIGN_CENTER; ws.cell(curr_row, 3).font = FONT_BOLD
-        ws.cell(curr_row, 5, "Total").alignment = ALIGN_CENTER; ws.cell(curr_row, 5).font = FONT_BOLD
+        ws.row_dimensions[curr_row].height = 54; ws.cell(curr_row, 3, total_store_count).number_format = FMT_NUMBER; ws.cell(curr_row, 3).alignment = ALIGN_CENTER; ws.cell(curr_row, 3).font = FONT_16_BOLD
+        ws.cell(curr_row, 5, "Total").alignment = ALIGN_CENTER; ws.cell(curr_row, 5).font = FONT_16_BOLD
         for d_idx in range(eff_days): daily_sum = sum([r['schedule'][d_idx] if d_idx < len(r['schedule']) and isinstance(r['schedule'][d_idx], (int, float)) else 0 for r in rows]); c = ws.cell(curr_row, 6+d_idx); c.value = "" if daily_sum == 0 else daily_sum; c.alignment = ALIGN_CENTER; c.font = FONT_WEEKEND if (start_dt + timedelta(days=d_idx)).weekday() >= 5 else FONT_DAILY
-        ws.cell(curr_row, end_c_start, sum([sum(r['schedule']) for r in rows])).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start).font = FONT_BOLD
-        ws.cell(curr_row, end_c_start+1, total_list_sum).number_format = FMT_MONEY; ws.cell(curr_row, end_c_start+1).font = FONT_BOLD; ws.cell(curr_row, end_c_start+1).alignment = ALIGN_CENTER
+        ws.cell(curr_row, end_c_start, sum([sum(r['schedule']) for r in rows])).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start).font = FONT_16_BOLD
+        ws.cell(curr_row, end_c_start+1, total_list_sum).number_format = FMT_MONEY; ws.cell(curr_row, end_c_start+1).font = FONT_16_BOLD; ws.cell(curr_row, end_c_start+1).alignment = ALIGN_CENTER
         pkg_total_val = (pkg_total if pkg_total is not None else budget)
-        ws.cell(curr_row, end_c_start+2, pkg_total_val).number_format = FMT_MONEY; ws.cell(curr_row, end_c_start+2).font = FONT_BOLD; ws.cell(curr_row, end_c_start+2).alignment = ALIGN_CENTER
+        ws.cell(curr_row, end_c_start+2, pkg_total_val).number_format = FMT_MONEY; ws.cell(curr_row, end_c_start+2).font = FONT_16_BOLD; ws.cell(curr_row, end_c_start+2).alignment = ALIGN_CENTER
         for c_idx in range(1, total_cols+1): ws.cell(curr_row, c_idx).border = BORDER_ALL_THIN
         draw_outer_border_fast(ws, curr_row, curr_row, 1, total_cols)
         for c_idx in range(1, total_cols+1): set_border(ws.cell(curr_row, c_idx), bottom=BS_MEDIUM)
@@ -616,8 +619,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         vat = int(budget * 0.05); grand_total = budget + vat
         footer_stack = [("製作", prod), ("5% VAT", vat), ("Grand Total", grand_total)]
         for lbl, val in footer_stack:
-            ws.row_dimensions[curr_row].height = 30; c_l = ws.cell(curr_row, end_c_start+1); c_l.value = lbl; c_l.alignment = ALIGN_RIGHT; c_l.font = FONT_STD
-            c_v = ws.cell(curr_row, end_c_start+2); c_v.value = val; c_v.number_format = FMT_MONEY; c_v.alignment = ALIGN_CENTER; c_v.font = FONT_BOLD 
+            ws.row_dimensions[curr_row].height = 30; c_l = ws.cell(curr_row, end_c_start+1); c_l.value = lbl; c_l.alignment = ALIGN_RIGHT; c_l.font = FONT_16
+            c_v = ws.cell(curr_row, end_c_start+2); c_v.value = val; c_v.number_format = FMT_MONEY; c_v.alignment = ALIGN_CENTER; c_v.font = FONT_16 
             t, b, l, r = BS_THIN, BS_THIN, BS_MEDIUM, BS_THIN; 
             if lbl == "Grand Total": b = BS_MEDIUM 
             c_l.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r))
