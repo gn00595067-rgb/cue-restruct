@@ -487,7 +487,7 @@ def main():
         def_client = st.session_state.get('temp_client_name', "萬國通路")
         def_tax = st.session_state.get('temp_tax_id', "")
         def_prod = st.session_state.get('temp_product_name', "統一布丁")
-        def_budget = float(st.session_state.get('temp_budget', 1000000))
+        def_budget = float(st.session_state.get("_total_budget_for_sidebar", st.session_state.get('temp_budget', 1000000)))
         def_cost = float(st.session_state.get('temp_prod_cost', 0))
         def_sales_idx = 0
         
