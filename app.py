@@ -353,17 +353,15 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
             ))
             st.rerun()
         aq_remarks_text = st.text_area(
-            "備註全文（可修改）",
+            "備註全文（預設範本，各波段可再個別修改）",
             value=st.session_state.get("aq_remarks_text", "\n".join(_default_rem_lines)),
             height=220,
             key="aq_remarks_text",
-            help="Remarks：本排程表經雙方確認後視同合約之延伸… 等內容可在此編輯",
+            help="此為預設備註範本；下方每個波段都有「本波備註」可單獨設定該波的 Remarks。",
         )
         st.session_state.aq_remarks_text = aq_remarks_text
 
-    rem = [line.strip() for line in (st.session_state.get("aq_remarks_text", "") or "").strip().split("\n") if line.strip()]
-    if not rem:
-        rem = get_remarks_text(aq_sign, aq_bill, aq_pay)
+    _default_rem_str = st.session_state.get("aq_remarks_text", "\n".join(_default_rem_lines)) or ""
 
     st.markdown("---")
     st.subheader("📥 各波段下載（每波獨立 Excel / PDF）")
@@ -401,15 +399,39 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                     r["pkg_display"] = scaled[j]
             budget_wave = price_override
         p_str = f"{'、'.join([str(r['seconds']) + '秒' for r in rows])} {product_name}"
-        html_preview = generate_html_preview(rows, total_days_wave, start_d, end_d, client_name, client_tax_id, p_str, format_type, rem, total_list_wave, budget_wave + int(budget_wave * 0.05), budget_wave, 0)
         with st.expander(f"波段 {i+1} 預覽：{start_d} ~ {end_d}", expanded=False):
+            st.caption("本波備註 (Remarks)：此波段 CUE 表使用的備註內容，可與其他波段不同。")
+            _ta_val = w.get("remarks_text") or _default_rem_str
+            st.text_area(
+                "本波備註 (Remarks)",
+                value=_ta_val,
+                height=180,
+                key=f"aq_wave_remarks_{i}",
+                label_visibility="collapsed",
+                help="此波段專用備註；留空則使用上方「備註範本」。",
+            )
+            st.session_state.aq_waves[i]["remarks_text"] = st.session_state.get(f"aq_wave_remarks_{i}", _ta_val) or ""
+            # 產出與預覽使用本波備註（含剛編輯後的值）
+            _wave_rem_raw = st.session_state.get(f"aq_wave_remarks_{i}") or w.get("remarks_text") or _default_rem_str
+            _wave_rem = [line.strip() for line in (_wave_rem_raw or "").strip().split("\n") if line.strip()]
+            if not _wave_rem:
+                _wave_rem = get_remarks_text(
+                    st.session_state.get("aq_sign_deadline", _def_sign),
+                    st.session_state.get("aq_billing_month", "2026年2月"),
+                    st.session_state.get("aq_payment_date", _def_pay),
+                )
+            html_preview = generate_html_preview(rows, total_days_wave, start_d, end_d, client_name, client_tax_id, p_str, format_type, _wave_rem, total_list_wave, budget_wave + int(budget_wave * 0.05), budget_wave, 0)
             if isinstance(html_preview, list):
                 for idx, one_html in enumerate(html_preview):
                     st.caption(f"第 {idx+1} 頁")
                     st.components.v1.html(one_html, height=400, scrolling=True)
             else:
                 st.components.v1.html(html_preview, height=400, scrolling=True)
-        xlsx_bytes = generate_excel_from_scratch(format_type, start_d, end_d, client_name, client_tax_id, product_name, rows, rem, budget_wave, 0, sales_person, total_list_wave)
+        _wave_rem_raw = st.session_state.get(f"aq_wave_remarks_{i}") or w.get("remarks_text") or _default_rem_str
+        _wave_rem = [line.strip() for line in (_wave_rem_raw or "").strip().split("\n") if line.strip()]
+        if not _wave_rem:
+            _wave_rem = get_remarks_text(st.session_state.get("aq_sign_deadline", _def_sign), st.session_state.get("aq_billing_month", "2026年2月"), st.session_state.get("aq_payment_date", _def_pay))
+        xlsx_bytes = generate_excel_from_scratch(format_type, start_d, end_d, client_name, client_tax_id, product_name, rows, _wave_rem, budget_wave, 0, sales_person, total_list_wave)
         pdf_bytes, _, _ = xlsx_bytes_to_pdf_bytes(xlsx_bytes)
         col_x, col_p = st.columns(2)
         with col_x:
