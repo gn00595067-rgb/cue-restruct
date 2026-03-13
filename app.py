@@ -358,8 +358,8 @@ def main():
                 if st.button("登入"):
                     if pwd == SUPERVISOR_PASSWORD:
                         st.session_state.is_supervisor = True
-                        for k in ("supervisor_last_total_budget", "supervisor_override_price"):
-                            st.session_state.pop(k, None)
+                        st.session_state.pop("_supervisor_final_budget", None)
+                        st.session_state["supervisor_override_price"] = ""
                         st.rerun()
                     else:
                         st.error("密碼錯誤")
@@ -368,21 +368,25 @@ def main():
                 if st.button("登出"):
                     st.session_state.is_supervisor = False
                     st.rerun()
-            # 覆寫欄位「始終」渲染（僅主管時啟用），避免登入時 widget 樹變動觸發 Cached ForwardMsg MISS
-            _total = float(st.session_state.get("_total_budget_for_sidebar", st.session_state.get("temp_budget", 1000000)))
-            if "supervisor_last_total_budget" not in st.session_state:
-                st.session_state.supervisor_last_total_budget = _total
-            if _total != st.session_state.supervisor_last_total_budget:
-                st.session_state.supervisor_last_total_budget = _total
-                _override_display = _total
-            else:
-                _override_display = float(st.session_state.get("supervisor_override_price", _total))
+            # 覆寫欄位：預設空白，輸入數字後才啟用覆寫
             st.caption("🔒 專案優惠價覆寫")
-            _ov = st.number_input("最終成交價", value=_override_display, step=10000.0, key="supervisor_override_price", label_visibility="collapsed", disabled=not st.session_state.is_supervisor)
+            _ov_raw = st.text_input("最終成交價", value=st.session_state.get("supervisor_override_price", ""), key="supervisor_override_price", label_visibility="collapsed", placeholder="留空則以總預算計", disabled=not st.session_state.is_supervisor)
             if st.session_state.is_supervisor:
-                st.session_state._supervisor_final_budget = _ov
-                if _ov != _total:
-                    st.caption(f"⚠️ 以 ${_ov:,.0f} 結算")
+                _ov_stripped = (_ov_raw or "").strip().replace(",", "")
+                if _ov_stripped:
+                    try:
+                        _ov_num = float(_ov_stripped)
+                        if _ov_num >= 0:
+                            st.session_state._supervisor_final_budget = _ov_num
+                            st.caption(f"⚠️ 以 ${_ov_num:,.0f} 結算")
+                        else:
+                            st.session_state.pop("_supervisor_final_budget", None)
+                            st.caption("請輸入 ≥ 0 的數字")
+                    except ValueError:
+                        st.session_state.pop("_supervisor_final_budget", None)
+                        st.caption("請輸入有效數字")
+                else:
+                    st.session_state.pop("_supervisor_final_budget", None)
             
             st.markdown("---")
             # --- 新增功能: Ragic 搜尋與載入 (強化版 UI) ---
@@ -507,15 +511,8 @@ def main():
             client_tax_id = st.text_input("統一編號", def_tax)
         with c2: product_name = st.text_input("產品名稱", def_prod)
         with c3:
-            if "total_budget_input" not in st.session_state:
-                st.session_state["total_budget_input"] = def_budget
-            def _sync_total_to_sidebar():
-                st.session_state["_total_budget_for_sidebar"] = float(st.session_state.get("total_budget_input", 0))
-                st.session_state["_pending_rerun_for_budget_sync"] = True
-            total_budget_input = st.number_input("總預算 (未稅 Net)", step=10000.0, key="total_budget_input", on_change=_sync_total_to_sidebar)
+            total_budget_input = st.number_input("總預算 (未稅 Net)", value=def_budget, step=10000.0)
         st.session_state["_total_budget_for_sidebar"] = float(total_budget_input)
-        if st.session_state.pop("_pending_rerun_for_budget_sync", False):
-            st.rerun()
         with c4: prod_cost_input = st.number_input("製作費 (未稅)", value=def_cost, step=1000.0)
         
         with c5_sales: 
