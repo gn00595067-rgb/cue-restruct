@@ -511,9 +511,11 @@ def main():
                 st.session_state["total_budget_input"] = def_budget
             def _sync_total_to_sidebar():
                 st.session_state["_total_budget_for_sidebar"] = float(st.session_state.get("total_budget_input", 0))
-                st.rerun()
+                st.session_state["_pending_rerun_for_budget_sync"] = True
             total_budget_input = st.number_input("總預算 (未稅 Net)", step=10000.0, key="total_budget_input", on_change=_sync_total_to_sidebar)
         st.session_state["_total_budget_for_sidebar"] = float(total_budget_input)
+        if st.session_state.pop("_pending_rerun_for_budget_sync", False):
+            st.rerun()
         with c4: prod_cost_input = st.number_input("製作費 (未稅)", value=def_cost, step=1000.0)
         
         with c5_sales: 
