@@ -506,7 +506,13 @@ def main():
             client_name = st.text_input("客戶名稱", def_client)
             client_tax_id = st.text_input("統一編號", def_tax)
         with c2: product_name = st.text_input("產品名稱", def_prod)
-        with c3: total_budget_input = st.number_input("總預算 (未稅 Net)", value=def_budget, step=10000.0)
+        with c3:
+            if "total_budget_input" not in st.session_state:
+                st.session_state["total_budget_input"] = def_budget
+            def _sync_total_to_sidebar():
+                st.session_state["_total_budget_for_sidebar"] = float(st.session_state.get("total_budget_input", 0))
+                st.rerun()
+            total_budget_input = st.number_input("總預算 (未稅 Net)", step=10000.0, key="total_budget_input", on_change=_sync_total_to_sidebar)
         st.session_state["_total_budget_for_sidebar"] = float(total_budget_input)
         with c4: prod_cost_input = st.number_input("製作費 (未稅)", value=def_cost, step=1000.0)
         
