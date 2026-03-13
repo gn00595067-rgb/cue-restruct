@@ -363,6 +363,25 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
     _default_rem_str = st.session_state.get("aq_remarks_text", "\n".join(_default_rem_lines)) or ""
 
     st.markdown("---")
+    st.subheader("📝 各波段備註（每個波段可分別設定）")
+    st.caption("以下每個波段都有獨立的備註欄位，該波下載的 CUE 表會使用對應的備註內容；留空則使用上方「備註範本」。")
+    for i, w in enumerate(waves):
+        start_d = w["start"]
+        end_d = w["end"]
+        _ta_val = w.get("remarks_text") or _default_rem_str
+        with st.expander(f"**波段 {i+1}**：{start_d} ~ {end_d} — 本波備註", expanded=(i == 0)):
+            st.text_area(
+                "本波備註內容",
+                value=_ta_val,
+                height=200,
+                key=f"aq_wave_remarks_{i}",
+                label_visibility="collapsed",
+                placeholder="留空則使用上方備註範本。可輸入多行，每行會成為一條備註。",
+            )
+            # 同步至 wave 供下載時讀取
+            st.session_state.aq_waves[i]["remarks_text"] = st.session_state.get(f"aq_wave_remarks_{i}", _ta_val) or ""
+
+    st.markdown("---")
     st.subheader("📥 各波段下載（每波獨立 Excel / PDF）")
     for i, w in enumerate(waves):
         start_d = w["start"]
@@ -398,27 +417,15 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                     r["pkg_display"] = scaled[j]
             budget_wave = price_override
         p_str = f"{'、'.join([str(r['seconds']) + '秒' for r in rows])} {product_name}"
-        with st.expander(f"波段 {i+1} 預覽：{start_d} ~ {end_d}", expanded=False):
-            st.caption("本波備註 (Remarks)：此波段 CUE 表使用的備註內容，可與其他波段不同。")
-            _ta_val = w.get("remarks_text") or _default_rem_str
-            st.text_area(
-                "本波備註 (Remarks)",
-                value=_ta_val,
-                height=180,
-                key=f"aq_wave_remarks_{i}",
-                label_visibility="collapsed",
-                help="此波段專用備註；留空則使用上方「備註範本」。",
+        _wave_rem_raw = st.session_state.get(f"aq_wave_remarks_{i}") or w.get("remarks_text") or _default_rem_str
+        _wave_rem = [line.strip() for line in (_wave_rem_raw or "").strip().split("\n") if line.strip()]
+        if not _wave_rem:
+            _wave_rem = get_remarks_text(
+                st.session_state.get("aq_sign_deadline", _def_sign),
+                st.session_state.get("aq_billing_month", "2026年2月"),
+                st.session_state.get("aq_payment_date", _def_pay),
             )
-            st.session_state.aq_waves[i]["remarks_text"] = st.session_state.get(f"aq_wave_remarks_{i}", _ta_val) or ""
-            # 產出與預覽使用本波備註（含剛編輯後的值）
-            _wave_rem_raw = st.session_state.get(f"aq_wave_remarks_{i}") or w.get("remarks_text") or _default_rem_str
-            _wave_rem = [line.strip() for line in (_wave_rem_raw or "").strip().split("\n") if line.strip()]
-            if not _wave_rem:
-                _wave_rem = get_remarks_text(
-                    st.session_state.get("aq_sign_deadline", _def_sign),
-                    st.session_state.get("aq_billing_month", "2026年2月"),
-                    st.session_state.get("aq_payment_date", _def_pay),
-                )
+        with st.expander(f"波段 {i+1} 預覽：{start_d} ~ {end_d}", expanded=False):
             html_preview = generate_html_preview(rows, total_days_wave, start_d, end_d, client_name, client_tax_id, p_str, format_type, _wave_rem, total_list_wave, budget_wave + int(budget_wave * 0.05), budget_wave, 0)
             if isinstance(html_preview, list):
                 for idx, one_html in enumerate(html_preview):
@@ -426,10 +433,6 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                     st.components.v1.html(one_html, height=400, scrolling=True)
             else:
                 st.components.v1.html(html_preview, height=400, scrolling=True)
-        _wave_rem_raw = st.session_state.get(f"aq_wave_remarks_{i}") or w.get("remarks_text") or _default_rem_str
-        _wave_rem = [line.strip() for line in (_wave_rem_raw or "").strip().split("\n") if line.strip()]
-        if not _wave_rem:
-            _wave_rem = get_remarks_text(st.session_state.get("aq_sign_deadline", _def_sign), st.session_state.get("aq_billing_month", "2026年2月"), st.session_state.get("aq_payment_date", _def_pay))
         xlsx_bytes = generate_excel_from_scratch(format_type, start_d, end_d, client_name, client_tax_id, product_name, rows, _wave_rem, budget_wave, 0, sales_person, total_list_wave)
         pdf_bytes, _, _ = xlsx_bytes_to_pdf_bytes(xlsx_bytes)
         col_x, col_p = st.columns(2)
