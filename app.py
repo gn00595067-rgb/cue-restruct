@@ -21,6 +21,17 @@ def _last_day_of_next_month():
     _, last = calendar.monthrange(today.year, today.month + 1)
     return date(today.year, today.month + 1, last)
 
+
+def _last_day_of_month_after(d):
+    """給定某日，回傳「該日所在月份的下一個月」的最後一天（用於各波段付款兌現日預設）。"""
+    if d is None:
+        return _last_day_of_next_month()
+    if d.month == 12:
+        _, last = calendar.monthrange(d.year + 1, 1)
+        return date(d.year + 1, 1, last)
+    _, last = calendar.monthrange(d.year, d.month + 1)
+    return date(d.year, d.month + 1, last)
+
 # =============================================================================
 # 導入所有模組
 # =============================================================================
@@ -336,8 +347,8 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
     if "aq_remarks_text" not in st.session_state:
         st.session_state.aq_remarks_text = "\n".join(_default_rem_lines)
 
-    with st.expander("📝 備註 (Remarks) — 可修改", expanded=False):
-        st.caption("回簽／請款月份／付款兌現日可調整；付款兌現日預設為「下一個月的最後一天」。下方備註全文可自由編輯。")
+    with st.expander("📝 備註 (Remarks) — 可修改（預設範本）", expanded=False):
+        st.caption("此為**預設範本**：回簽／請款月份／付款兌現日可調整；「依上列日期重新產生備註」會依這三個欄位重寫下方備註全文（第 1、5、6 條的日期會跟著變），方便快速套用。各波段可在下方各自設定並重新產生該波的備註。")
         rc1, rc2, rc3 = st.columns(3)
         with rc1:
             aq_sign = st.date_input("回簽及進單期限", aq_sign, key="aq_sign_deadline")
@@ -364,12 +375,44 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
 
     st.markdown("---")
     st.subheader("📝 各波段備註（每個波段可分別設定）")
-    st.caption("以下每個波段都有獨立的備註欄位，該波下載的 CUE 表會使用對應的備註內容；留空則使用上方「備註範本」。")
+    st.caption("以下每個波段都有獨立的「回簽／請款月份／付款兌現日」與備註全文；付款兌現日預設為**該波段結束日的下個月最後一天**。修改欄位後按「依上列日期重新產生本波備註」可讓下方備註全文跟著更新。")
     for i, w in enumerate(waves):
         start_d = w["start"]
         end_d = w["end"]
+        # 各波預設：付款兌現日 = 波段結束日的下個月最後一天
+        _def_pay_wave = _last_day_of_month_after(end_d)
+        if "payment_date" not in w or w.get("payment_date") is None:
+            st.session_state.aq_waves[i]["payment_date"] = _def_pay_wave
+        if "sign_deadline" not in w or w.get("sign_deadline") is None:
+            st.session_state.aq_waves[i]["sign_deadline"] = st.session_state.get("aq_sign_deadline", _def_sign)
+        if "billing_month" not in w or w.get("billing_month") is None:
+            st.session_state.aq_waves[i]["billing_month"] = st.session_state.get("aq_billing_month", "2026年2月")
+        w = st.session_state.aq_waves[i]
+        _sig = w.get("sign_deadline", _def_sign)
+        _bill = w.get("billing_month", "2026年2月")
+        _pay = w.get("payment_date", _def_pay_wave)
+        if isinstance(_sig, datetime):
+            _sig = _sig.date() if hasattr(_sig, "date") else _def_sign
+        if isinstance(_pay, datetime):
+            _pay = _pay.date() if hasattr(_pay, "date") else _def_pay_wave
         _ta_val = w.get("remarks_text") or _default_rem_str
         with st.expander(f"**波段 {i+1}**：{start_d} ~ {end_d} — 本波備註", expanded=(i == 0)):
+            st.caption("回簽及進單期限、請款月份、付款兌現日期（預設為本波結束日的下個月最後一天）；修改後按鈕可讓下方備註全文依此更新。")
+            r1, r2, r3 = st.columns(3)
+            with r1:
+                _sig = st.date_input("回簽及進單期限", _sig, key=f"aq_wave_sign_{i}")
+            with r2:
+                _bill = st.text_input("請款月份", _bill, key=f"aq_wave_bill_{i}", placeholder="例：2026年2月")
+            with r3:
+                _pay = st.date_input("付款兌現日期（預設本波結束下月最後一天）", _pay, key=f"aq_wave_pay_{i}")
+            st.session_state.aq_waves[i]["sign_deadline"] = _sig
+            st.session_state.aq_waves[i]["billing_month"] = _bill
+            st.session_state.aq_waves[i]["payment_date"] = _pay
+            if st.button("依上列日期重新產生本波備註", key=f"aq_wave_rem_btn_{i}"):
+                _new_rem = "\n".join(get_remarks_text(_sig, _bill, _pay))
+                st.session_state.aq_waves[i]["remarks_text"] = _new_rem
+                st.session_state[f"aq_wave_remarks_{i}"] = _new_rem
+                st.rerun()
             st.text_area(
                 "本波備註內容",
                 value=_ta_val,
@@ -378,7 +421,6 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                 label_visibility="collapsed",
                 placeholder="留空則使用上方備註範本。可輸入多行，每行會成為一條備註。",
             )
-            # 同步至 wave 供下載時讀取
             st.session_state.aq_waves[i]["remarks_text"] = st.session_state.get(f"aq_wave_remarks_{i}", _ta_val) or ""
 
     st.markdown("---")
