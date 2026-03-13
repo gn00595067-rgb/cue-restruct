@@ -350,6 +350,8 @@ def main():
         
         # --- Sidebar 邏輯 (登入與設定) ---
         with st.sidebar:
+            with st.expander("ℹ️ 版本", expanded=False):
+                st.caption(f"Streamlit {st.__version__}")
             st.header("🕵️ 主管登入")
             if not st.session_state.is_supervisor:
                 pwd = st.text_input("輸入密碼", type="password", key="pwd_input")
