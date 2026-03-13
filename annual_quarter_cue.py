@@ -106,7 +106,8 @@ def build_wave_rows(combos, wave_start, wave_end, wave_spots_list, wave_net_list
                 continue
             list_price = db[region][0]
             net_price = db[region][1]
-            calc_std = std_spots_ref * 2 if (media == "新鮮視" and region != "全省") else std_spots_ref
+            # 依 Pricing 表各區 Std_Spots（新鮮視不再 *2）
+            calc_std = (db.get("_Region_Std_Spots") or {}).get(region) or std_spots_ref
             unit_list = (list_price / calc_std) * factor
             unit_net = (net_price / calc_std) * factor
             rate_display = int(unit_list * spots)

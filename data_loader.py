@@ -6,6 +6,7 @@
 import re
 import pandas as pd
 import streamlit as st
+from config import REFERENCE_STD_SPOTS
 
 
 @st.cache_data(ttl=300)
@@ -61,11 +62,12 @@ def load_config_from_cloud(share_url):
                     pricing_db[m] = {"Day_Part": row['Day_Part'], "_Region_Std_Spots": {}}
                 pricing_db[m]["_Region_Std_Spots"][r] = int(row['Std_Spots'])
                 pricing_db[m][r] = [int(row['List_Price']), int(row['Net_Price'])]
-        # 全家廣播/新鮮視：Std_Spots 預設為全省值，供未改寫處相容
+        # 全家廣播/新鮮視：Std_Spots 預設為全省值，供未改寫處相容；缺值時以 REFERENCE_STD_SPOTS 為 fallback
         for m in list(pricing_db.keys()):
             if m != "家樂福" and "_Region_Std_Spots" in pricing_db[m]:
                 rs = pricing_db[m]["_Region_Std_Spots"]
-                pricing_db[m]["Std_Spots"] = rs.get("全省", next(iter(rs.values()), 480))
+                fallback = REFERENCE_STD_SPOTS.get(m, {}).get("全省", 480)
+                pricing_db[m]["Std_Spots"] = rs.get("全省", next(iter(rs.values()), fallback))
 
         df_sales = read_sheet("Sales")
         df_sales.columns = [c.strip() for c in df_sales.columns]

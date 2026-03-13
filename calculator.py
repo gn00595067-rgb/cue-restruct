@@ -5,6 +5,7 @@
 
 import math
 import streamlit as st
+from config import REFERENCE_STD_SPOTS
 from utils import get_sec_factor, calculate_schedule
 
 
@@ -69,6 +70,12 @@ def render_logic_panel(logs, use_list_price_for_spots=False, rebate_logs=None, b
                 if item.get('rate_pkg_note'):
                     st.caption(item['rate_pkg_note'])
 
+            if item.get("region_detail"):
+                st.markdown("#### 5. 各區價錢計算（分區 Std_Spots 影響各區 rate (Net)）")
+                st.caption("全省聯播時，各列 rate (Net) 依該區定價與該區 Std_Spots 計算；分區 Std_Spots 與全省可能不同。")
+                for rd in item["region_detail"]:
+                    st.text(f"• **{rd['region']}**：定價 ${rd['list_price']:,}、Std_Spots = {rd['std_spots']} → int({rd['list_price']:,} / {rd['std_spots']} × {item['factor']}) × {item['spots']} = {rd['unit_rate']:,} × {item['spots']} = **${rd['rate_display']:,}**")
+
             if item.get('note'):
                 st.info(f"備註: {item['note']}")
 
@@ -114,16 +121,16 @@ def render_logic_panel(logs, use_list_price_for_spots=False, rebate_logs=None, b
 
 
 def _get_std_spots(db, region_key, is_national, media):
-    """依 Pricing 表取得該區 Std_Spots；新鮮視全省與分區可不同，分區優先用該區欄位。"""
+    """依 Pricing 表取得該區 Std_Spots；缺值時以 config.REFERENCE_STD_SPOTS 為 fallback（以 Google Sheet 為主）。"""
     region_std = db.get("_Region_Std_Spots") or {}
+    ref = REFERENCE_STD_SPOTS.get(media, {})
     if is_national or region_key == "全省":
-        return region_std.get("全省") or db.get("Std_Spots") or 480
+        return region_std.get("全省") or db.get("Std_Spots") or ref.get("全省") or 480
     v = region_std.get(region_key)
     if v is not None:
         return v
-    if media == "新鮮視":
-        return (db.get("Std_Spots") or 480) * 2
-    return db.get("Std_Spots") or 480
+    # 以參考表為 fallback；僅當 media 不在參考表時用 480 避免除錯（仍應以 Google Sheet 為主）
+    return db.get("Std_Spots") or ref.get(region_key) or ref.get("全省") or 480
 
 
 def calculate_plan_data(config, total_budget, days_count, pricing_db, sec_factors, store_counts_num, regions_order, use_list_price_for_spots=False):
@@ -212,15 +219,16 @@ def calculate_plan_data(config, total_budget, days_count, pricing_db, sec_factor
                                 "note": "自訂區域比例：全省部分為 6 區皆有的最低比例，總預算 = 6×min_ratio×s_budget",
                                 "list_price": nat_list,
                                 "pkg_display": nat_pkg_display,
-                                "rate_pkg_note": "rate (Net) 各列依該區定價計算；Package-cost (Net) 為全省合併顯示。"
                             }
                             if m == "新鮮視":
                                 _log["std_spots_note"] = f"新鮮視：全省 Std_Spots = {calc_std_spots_nat}（依據 Pricing 表）"
-                            logs.append(_log)
+                            _region_detail = []
                             for r in display_regs:
                                 list_price_region = db[r][0]
-                                unit_rate_region = int((list_price_region / calc_std_spots_nat) * factor)
+                                std_r = _get_std_spots(db, r, False, m)
+                                unit_rate_region = int((list_price_region / std_r) * factor)
                                 total_rate_display_region = unit_rate_region * spots_nat
+                                _region_detail.append({"region": r, "list_price": list_price_region, "std_spots": std_r, "unit_rate": unit_rate_region, "rate_display": total_rate_display_region})
                                 rows.append({
                                     "media": m,
                                     "region": r,
@@ -234,6 +242,9 @@ def calculate_plan_data(config, total_budget, days_count, pricing_db, sec_factor
                                     "is_pkg_member": True,
                                     "nat_pkg_display": nat_pkg_display
                                 })
+                            _log["region_detail"] = _region_detail
+                            _log["rate_pkg_note"] = "rate (Net) 各列依該區定價與該區 Std_Spots 計算；Package-cost (Net) 為全省合併顯示。"
+                            logs.append(_log)
 
                         # 各區「超出最低比例」部分：依個別縣市價錢計價（新鮮視各區 Std_Spots 依 Pricing 表）
                         for r, ratio in region_shares.items():
@@ -423,7 +434,7 @@ def calculate_plan_data(config, total_budget, days_count, pricing_db, sec_factor
                 if cfg["is_national"] and nat_list is not None:
                     log_entry["list_price"] = nat_list
                     log_entry["pkg_display"] = nat_pkg_display
-                    log_entry["rate_pkg_note"] = "rate (Net) 各列依該區定價計算；Package-cost (Net) 為全省合併顯示。"
+                    log_entry["rate_pkg_note"] = "rate (Net) 各列依該區定價與該區 Std_Spots 計算；Package-cost (Net) 為全省合併顯示。"
                 else:
                     std_first = _get_std_spots(db, display_regs[0], False, m) if display_regs else calc_std_spots
                     unit_rate_ex = int((first_region_list / std_first) * factor) if first_region_list else 0
@@ -438,12 +449,23 @@ def calculate_plan_data(config, total_budget, days_count, pricing_db, sec_factor
                 if not cfg["is_national"]:
                     nat_pkg_display = 0
 
+                # 全省聯播時仍依「各區 Std_Spots」計算各區 rate (Net)，並寫入 log 供邏輯面板顯示
+                region_detail = [] if cfg["is_national"] and display_regs else None
                 for i, r in enumerate(display_regs):
                     list_price_region = db[r][0]
-                    std_r = _get_std_spots(db, r, cfg["is_national"], m)
+                    # 各區 rate (Net) 依該區 Std_Spots 計算（全省聯播也適用，分區 Std_Spots 影響價錢）
+                    std_r = _get_std_spots(db, r, False, m)
                     unit_rate_display = int((list_price_region / std_r) * factor)
                     total_rate_display = unit_rate_display * spots_final
                     row_pkg_display = total_rate_display
+                    if region_detail is not None:
+                        region_detail.append({
+                            "region": r,
+                            "list_price": list_price_region,
+                            "std_spots": std_r,
+                            "unit_rate": unit_rate_display,
+                            "rate_display": total_rate_display,
+                        })
                     if not cfg["is_national"]:
                         total_list_accum += row_pkg_display
 
@@ -460,6 +482,8 @@ def calculate_plan_data(config, total_budget, days_count, pricing_db, sec_factor
                         "is_pkg_member": cfg["is_national"],
                         "nat_pkg_display": nat_pkg_display
                     })
+                if region_detail:
+                    logs[-1]["region_detail"] = region_detail
 
             elif m == "家樂福":
                 # 家樂福特殊邏輯: 分為量販與超市，但預算計算主要基於量販

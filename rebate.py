@@ -5,6 +5,7 @@
 
 import math
 from config import (
+    REFERENCE_STD_SPOTS,
     REGIONS_ORDER,
     REBATE_RULES_NAT,
     REBATE_RULES_REGION,
@@ -1088,31 +1089,34 @@ def compute_custom_bonus_rows(rows, custom_bonus_config, campaign_start, campaig
         media, sec, region_key = key
         daypart = first.get("daypart", "")
         display_regions = g["display_regions"]
-        # 定價用於 rate_display；加贈列 Package 顯示「加贈」
+        # 定價用於 rate_display；加贈列 Package 顯示「加贈」；Std_Spots 缺值時以 REFERENCE_STD_SPOTS 為 fallback
         db = pricing_db.get(media, {})
-        std_spots_ref = 480
-        if isinstance(db, dict):
-            if "Std_Spots" in db:
-                std_spots_ref = db["Std_Spots"]
-            elif "量販_全省" in db and isinstance(db["量販_全省"], dict):
-                std_spots_ref = db["量販_全省"].get("Std_Spots", 420)
         factor = get_sec_factor(media, sec, sec_factors)
-        # 家樂福 region 對應 db key
         cf_region_key = {"全省量販": "量販_全省", "全省超市": "超市_全省"}
         for disp_r in display_regions:
             list_price = None
+            std_spots_ref = None
             if isinstance(db, dict):
                 if media == "家樂福":
                     db_key = cf_region_key.get(disp_r, disp_r)
                     ent = db.get(db_key)
                     if isinstance(ent, dict):
                         list_price = ent.get("List")
+                        std_spots_ref = ent.get("Std_Spots")
+                    if std_spots_ref is None:
+                        std_spots_ref = REFERENCE_STD_SPOTS.get("家樂福", {}).get(disp_r) or REFERENCE_STD_SPOTS.get("家樂福", {}).get(db_key)
                 else:
                     ent = db.get(disp_r) or db.get("全省")
                     if isinstance(ent, (list, tuple)):
                         list_price = ent[0] if len(ent) else None
                     else:
                         list_price = ent
+                    region_std = db.get("_Region_Std_Spots") or {}
+                    std_spots_ref = region_std.get(disp_r) or db.get("Std_Spots") or std_spots_ref
+                    if std_spots_ref is None:
+                        std_spots_ref = REFERENCE_STD_SPOTS.get(media, {}).get(disp_r) or REFERENCE_STD_SPOTS.get(media, {}).get("全省")
+            if std_spots_ref is None:
+                std_spots_ref = 480  # 未知媒體最後防呆
             unit_rate = int((list_price / std_spots_ref) * factor) if list_price and std_spots_ref else 0
             rate_display = unit_rate * total_spots
             bonus_row = {
