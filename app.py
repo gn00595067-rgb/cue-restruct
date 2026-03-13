@@ -499,15 +499,15 @@ def main():
             col_sup1, col_sup2 = st.columns([1, 2])
             with col_sup1: st.error("🔒 [主管] 專案優惠價覆寫")
             with col_sup2:
-                # 預設為總預算；總預算修改時覆寫跟著變；覆寫修改時總預算不變
+                # 預設為總預算；總預算修改時覆寫跟著變；覆寫修改時總預算不變（只用 value 傳入，避免 Session State 與 value 雙重設定衝突）
                 if "supervisor_last_total_budget" not in st.session_state:
-                    st.session_state.supervisor_last_total_budget = total_budget_input
-                if "supervisor_override_price" not in st.session_state:
-                    st.session_state.supervisor_override_price = float(total_budget_input)
-                if total_budget_input != st.session_state.supervisor_last_total_budget:
-                    st.session_state.supervisor_override_price = float(total_budget_input)
                     st.session_state.supervisor_last_total_budget = float(total_budget_input)
-                override_val = st.number_input("輸入最終成交價", value=st.session_state.supervisor_override_price, step=10000.0, key="supervisor_override_price")
+                if total_budget_input != st.session_state.supervisor_last_total_budget:
+                    st.session_state.supervisor_last_total_budget = float(total_budget_input)
+                    override_display = float(total_budget_input)
+                else:
+                    override_display = float(st.session_state.get("supervisor_override_price", total_budget_input))
+                override_val = st.number_input("輸入最終成交價", value=override_display, step=10000.0, key="supervisor_override_price")
                 if override_val != total_budget_input:
                     final_budget_val = override_val
                     st.caption(f"⚠️ 使用 ${final_budget_val:,.0f} 結算")
