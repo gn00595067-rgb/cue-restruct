@@ -32,6 +32,39 @@ def _last_day_of_month_after(d):
     _, last = calendar.monthrange(d.year, d.month + 1)
     return date(d.year, d.month + 1, last)
 
+
+def _slice_rows_to_segment(rows, start_date, seg_start, seg_end):
+    """將 rows 的 schedule 切出波段區間，回傳新 rows（不改動原 list）。"""
+    from copy import deepcopy
+    seg_d0 = (seg_start - start_date).days
+    seg_d1 = (seg_end - start_date).days
+    seg_days = (seg_end - seg_start).days + 1
+    out = []
+    for r in rows:
+        nr = deepcopy(r)
+        if "schedule" in nr and isinstance(nr["schedule"], list):
+            full = nr["schedule"]
+            nr["schedule"] = full[seg_d0 : seg_d1 + 1] if seg_d0 >= 0 and seg_d1 < len(full) else [0] * seg_days
+        out.append(nr)
+    return out
+
+
+def _get_cue_segment_rem(i, seg_end, def_sign):
+    """取得一般 CUE 第 i 波段的備註 list（從 session_state 讀取）。"""
+    seg_data = st.session_state.get("cue_seg_remarks", {}).get(i, {})
+    _sig = seg_data.get("sign_deadline", def_sign)
+    _bill = seg_data.get("billing_month", "2026年2月")
+    _pay = seg_data.get("payment_date", _last_day_of_month_after(seg_end))
+    if isinstance(_sig, datetime):
+        _sig = _sig.date() if hasattr(_sig, "date") else _sig
+    if isinstance(_pay, datetime):
+        _pay = _pay.date() if hasattr(_pay, "date") else _pay
+    if seg_data.get("live_update_remarks", True):
+        return get_remarks_text(_sig, _bill, _pay)
+    raw = (st.session_state.get(f"cue_seg_remarks_{i}", "") or "").strip().split("\n")
+    rem = [line.strip() for line in raw if line.strip()]
+    return rem if rem else get_remarks_text(_sig, _bill, _pay)
+
 # =============================================================================
 # 導入所有模組
 # =============================================================================
@@ -716,16 +749,74 @@ def main():
         else:
             st.info(f"📅 走期共 **{days_count}** 天")
 
-        with st.expander("📝 備註欄位設定", expanded=False):
-            rc1, rc2, rc3 = st.columns(3)
-            # 修改：處理備註欄位的預設值
-            def_sign = st.session_state.get('temp_sign_date', datetime.now() + timedelta(days=3))
-            def_bill = st.session_state.get('temp_bill_month', "2026年2月")
-            def_pay = st.session_state.get('temp_pay_date', datetime(2026, 3, 31))
+        _cue_def_sign = datetime.now() + timedelta(days=3)
+        if isinstance(_cue_def_sign, datetime):
+            _cue_def_sign = _cue_def_sign.date()
+        _cue_def_pay = _last_day_of_month_after(end_date)
+        st.session_state.setdefault("cue_sign_deadline", _cue_def_sign)
+        st.session_state.setdefault("cue_billing_month", "2026年2月")
+        st.session_state.setdefault("cue_payment_date", _cue_def_pay)
+        st.session_state.setdefault("cue_live_update_remarks", True)
 
-            sign_deadline = rc1.date_input("回簽截止日", def_sign)
-            billing_month = rc2.text_input("請款月份", def_bill)
-            payment_date = rc3.date_input("付款兌現日", def_pay)
+        with st.expander("📝 備註欄位設定", expanded=False):
+            st.caption("回簽／請款月份／付款兌現日（付款兌現日預設為走期結束日的下個月最後一天）；勾選「即時更新」後修改欄位時下方備註條列會動態改變。")
+            rc1, rc2, rc3 = st.columns(3)
+            sign_deadline = rc1.date_input("回簽及進單期限", st.session_state.get("cue_sign_deadline", _cue_def_sign), key="cue_sign_deadline")
+            billing_month = rc2.text_input("請款月份", st.session_state.get("cue_billing_month", "2026年2月"), key="cue_billing_month", placeholder="例：2026年2月")
+            payment_date = rc3.date_input("付款兌現日期（預設走期結束下月最後一天）", st.session_state.get("cue_payment_date", _cue_def_pay), key="cue_payment_date")
+            cue_live = st.checkbox("依上列日期即時更新備註（修改欄位時下方條列會動態改變）", value=st.session_state.get("cue_live_update_remarks", True), key="cue_live_update_remarks")
+            if cue_live:
+                _gen_rem = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date))
+                st.session_state.cue_remarks_text = _gen_rem
+            if not cue_live and st.button("依上列日期重新產生備註", key="cue_rem_refresh"):
+                st.session_state.cue_remarks_text = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date))
+                st.rerun()
+            _rem_display = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date)) if cue_live else (st.session_state.get("cue_remarks_text", "") or "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date)))
+            st.text_area("備註全文", value=_rem_display, height=200, key="cue_remarks_text", label_visibility="collapsed", placeholder="留空則依上列三個日期欄位自動產生。", disabled=cue_live)
+
+        if use_date_segments and segments and len(segments) > 1:
+            st.markdown("#### 📝 各波段備註（有分波段時可分別設定）")
+            st.caption("每個波段可設定獨立的回簽／請款月份／付款兌現日與備註；付款兌現日預設為**該波段結束日的下個月最後一天**。")
+            if "cue_seg_remarks" not in st.session_state:
+                st.session_state.cue_seg_remarks = {}
+            for i, (seg_start, seg_end) in enumerate(segments):
+                _def_pay_seg = _last_day_of_month_after(seg_end)
+                st.session_state.cue_seg_remarks.setdefault(i, {}).setdefault("sign_deadline", _cue_def_sign)
+                st.session_state.cue_seg_remarks.setdefault(i, {}).setdefault("billing_month", "2026年2月")
+                st.session_state.cue_seg_remarks.setdefault(i, {}).setdefault("payment_date", _def_pay_seg)
+                st.session_state.cue_seg_remarks.setdefault(i, {}).setdefault("live_update_remarks", True)
+                seg_data = st.session_state.cue_seg_remarks[i]
+                _s = seg_data.get("sign_deadline", _cue_def_sign)
+                _b = seg_data.get("billing_month", "2026年2月")
+                _p = seg_data.get("payment_date", _def_pay_seg)
+                if isinstance(_s, datetime):
+                    _s = _s.date() if hasattr(_s, "date") else _s
+                if isinstance(_p, datetime):
+                    _p = _p.date() if hasattr(_p, "date") else _p
+                with st.expander(f"**波段 {i+1}**：{seg_start} ~ {seg_end} — 本波備註", expanded=(i == 0)):
+                    r1, r2, r3 = st.columns(3)
+                    with r1:
+                        _s = st.date_input("回簽及進單期限", _s, key=f"cue_seg_sign_{i}")
+                    with r2:
+                        _b = st.text_input("請款月份", _b, key=f"cue_seg_bill_{i}", placeholder="例：2026年2月")
+                    with r3:
+                        _p = st.date_input("付款兌現日期（預設本波結束下月最後一天）", _p, key=f"cue_seg_pay_{i}")
+                    st.session_state.cue_seg_remarks[i]["sign_deadline"] = _s
+                    st.session_state.cue_seg_remarks[i]["billing_month"] = _b
+                    st.session_state.cue_seg_remarks[i]["payment_date"] = _p
+                    seg_live = st.checkbox("依上列日期即時更新備註", value=seg_data.get("live_update_remarks", True), key=f"cue_seg_live_{i}")
+                    st.session_state.cue_seg_remarks[i]["live_update_remarks"] = seg_live
+                    if seg_live:
+                        _gen_seg = "\n".join(get_remarks_text(_s, _b, _p))
+                        st.session_state[f"cue_seg_remarks_{i}"] = _gen_seg
+                        st.session_state.cue_seg_remarks[i]["remarks_text"] = _gen_seg
+                    if not seg_live and st.button("依上列日期重新產生本波備註", key=f"cue_seg_rem_btn_{i}"):
+                        _gen_seg = "\n".join(get_remarks_text(_s, _b, _p))
+                        st.session_state[f"cue_seg_remarks_{i}"] = _gen_seg
+                        st.session_state.cue_seg_remarks[i]["remarks_text"] = _gen_seg
+                        st.rerun()
+                    _seg_display = "\n".join(get_remarks_text(_s, _b, _p)) if seg_live else (st.session_state.get(f"cue_seg_remarks_{i}", "") or "\n".join(get_remarks_text(_s, _b, _p)))
+                    st.text_area("本波備註", value=_seg_display, height=180, key=f"cue_seg_remarks_{i}", label_visibility="collapsed", disabled=seg_live)
 
         st.markdown("### 3. 媒體投放設定")
         col_cb1, col_cb2, col_cb3 = st.columns(3)
@@ -1346,54 +1437,87 @@ def main():
             grand_total = final_budget_val + vat
             
             p_str = f"{'、'.join([f'{s}秒' for s in sorted(list(set(r['seconds'] for r in rows)))])} {product_name}"
-            rem = get_remarks_text(sign_deadline, billing_month, payment_date)
-            
-            # 生成 HTML 預覽（表頭與欄數用完整走期 total_days）
-            html_preview = generate_html_preview(rows, total_days, start_date, end_date, client_name, client_tax_id, p_str, format_type, rem, total_list_accum, grand_total, final_budget_val, prod_cost)
-            if isinstance(html_preview, list):
-                for idx, one_html in enumerate(html_preview):
-                    st.caption(f"第 {idx+1} 頁")
-                    st.components.v1.html(one_html, height=700, scrolling=True)
+            _cue_live = st.session_state.get("cue_live_update_remarks", True)
+            _sig = st.session_state.get("cue_sign_deadline", datetime.now().date())
+            _bill = st.session_state.get("cue_billing_month", "2026年2月")
+            _pay = st.session_state.get("cue_payment_date", _last_day_of_month_after(end_date))
+            if isinstance(_sig, datetime):
+                _sig = _sig.date() if hasattr(_sig, "date") else _sig
+            if isinstance(_pay, datetime):
+                _pay = _pay.date() if hasattr(_pay, "date") else _pay
+            if _cue_live:
+                rem = get_remarks_text(_sig, _bill, _pay)
             else:
-                st.components.v1.html(html_preview, height=700, scrolling=True)
-            
+                _rem_raw = (st.session_state.get("cue_remarks_text", "") or "").strip().split("\n")
+                rem = [line.strip() for line in _rem_raw if line.strip()]
+                if not rem:
+                    rem = get_remarks_text(_sig, _bill, _pay)
+            sign_deadline = _sig
+            billing_month = _bill
+            payment_date = _pay
+
             # 顯示運算邏輯（含回饋檔次計算、主管額外回饋計算）
             render_logic_panel(logs, use_list_price_for_spots=is_barter_contract, rebate_logs=rebate_logs if not is_barter_contract else [], bonus_rebate_logs=bonus_rebate_logs)
             
             st.markdown("---")
             st.subheader("📥 檔案下載區")
-            
-            # 生成 Excel (In-Memory)
-            xlsx_temp = generate_excel_from_scratch(format_type, start_date, end_date, client_name, client_tax_id, product_name, rows, rem, final_budget_val, prod_cost, sales_person, total_list_accum)
-            
-            col_dl1, col_dl2, col_ragic = st.columns([1, 1, 2])
-            
-            # PDF 下載 (透過 LibreOffice)
-            with col_dl2:
-                pdf_bytes, method, err = xlsx_bytes_to_pdf_bytes(xlsx_temp)
-                if pdf_bytes:
-                    st.download_button(
-                        f"📥 下載 PDF", 
-                        pdf_bytes, 
-                        f"Cue_{safe_filename(client_name)}.pdf", 
-                        key="pdf_dl_btn",
-                        mime="application/pdf"
-                    )
+
+            _cue_def_s = st.session_state.get("cue_sign_deadline", datetime.now().date())
+            if isinstance(_cue_def_s, datetime):
+                _cue_def_s = _cue_def_s.date() if hasattr(_cue_def_s, "date") else _cue_def_s
+
+            if use_date_segments and segments and len(segments) > 1:
+                for i, (seg_start, seg_end) in enumerate(segments):
+                    seg_rem = _get_cue_segment_rem(i, seg_end, _cue_def_s)
+                    segment_rows = _slice_rows_to_segment(rows, start_date, seg_start, seg_end)
+                    seg_days = (seg_end - seg_start).days + 1
+                    html_seg = generate_html_preview(segment_rows, seg_days, seg_start, seg_end, client_name, client_tax_id, p_str, format_type, seg_rem, total_list_accum, grand_total, final_budget_val, prod_cost)
+                    with st.expander(f"波段 {i+1}：{seg_start} ~ {seg_end}", expanded=(i == 0)):
+                        if isinstance(html_seg, list):
+                            for idx, one_html in enumerate(html_seg):
+                                st.caption(f"第 {idx+1} 頁")
+                                st.components.v1.html(one_html, height=500, scrolling=True)
+                        else:
+                            st.components.v1.html(html_seg, height=500, scrolling=True)
+                        xlsx_seg = generate_excel_from_scratch(format_type, seg_start, seg_end, client_name, client_tax_id, product_name, segment_rows, seg_rem, final_budget_val, prod_cost, sales_person, total_list_accum)
+                        pdf_seg, _, _ = xlsx_bytes_to_pdf_bytes(xlsx_seg)
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.download_button(f"📥 波段{i+1} Excel", xlsx_seg, f"Cue_{safe_filename(client_name)}_波段{i+1}_{seg_start}_{seg_end}.xlsx", key=f"cue_seg_xlsx_{i}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                        with c2:
+                            if pdf_seg:
+                                st.download_button(f"📥 波段{i+1} PDF", pdf_seg, f"Cue_{safe_filename(client_name)}_波段{i+1}_{seg_start}_{seg_end}.pdf", key=f"cue_seg_pdf_{i}", mime="application/pdf")
+                            else:
+                                st.caption("PDF 需 LibreOffice")
+                _ragic_col = st.columns(3)[2]
+                seg0_start, seg0_end = segments[0][0], segments[0][1]
+                _seg0_rem = _get_cue_segment_rem(0, seg0_end, _cue_def_s)
+                _seg0_rows = _slice_rows_to_segment(rows, start_date, seg0_start, seg0_end)
+                _xlsx_ragic = generate_excel_from_scratch(format_type, seg0_start, seg0_end, client_name, client_tax_id, product_name, _seg0_rows, _seg0_rem, final_budget_val, prod_cost, sales_person, total_list_accum)
+                _pdf_ragic, _, _ = xlsx_bytes_to_pdf_bytes(_xlsx_ragic)
+            else:
+                # 單一預覽與下載（無分波段或僅一波段）
+                html_preview = generate_html_preview(rows, total_days, start_date, end_date, client_name, client_tax_id, p_str, format_type, rem, total_list_accum, grand_total, final_budget_val, prod_cost)
+                if isinstance(html_preview, list):
+                    for idx, one_html in enumerate(html_preview):
+                        st.caption(f"第 {idx+1} 頁")
+                        st.components.v1.html(one_html, height=700, scrolling=True)
                 else:
-                    st.warning(f"PDF 生成失敗: {err}")
+                    st.components.v1.html(html_preview, height=700, scrolling=True)
+                xlsx_temp = generate_excel_from_scratch(format_type, start_date, end_date, client_name, client_tax_id, product_name, rows, rem, final_budget_val, prod_cost, sales_person, total_list_accum)
+                col_dl1, col_dl2, col_ragic = st.columns([1, 1, 2])
+                with col_dl2:
+                    pdf_bytes, method, err = xlsx_bytes_to_pdf_bytes(xlsx_temp)
+                    if pdf_bytes:
+                        st.download_button(f"📥 下載 PDF", pdf_bytes, f"Cue_{safe_filename(client_name)}.pdf", key="pdf_dl_btn", mime="application/pdf")
+                    else:
+                        st.warning(f"PDF 生成失敗: {err}")
+                with col_dl1:
+                    st.download_button("📥 下載 Excel", xlsx_temp, f"Cue_{safe_filename(client_name)}.xlsx", key="xlsx_dl_btn", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                _ragic_col = col_ragic
+                _xlsx_ragic, _pdf_ragic = xlsx_temp, pdf_bytes
 
-            # Excel 下載（所有人皆可下載）
-            with col_dl1:
-                st.download_button(
-                    "📥 下載 Excel",
-                    xlsx_temp,
-                    f"Cue_{safe_filename(client_name)}.xlsx",
-                    key="xlsx_dl_btn",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-
-            # Ragic 上傳
-            with col_ragic:
+            with _ragic_col:
                 st.markdown("#### ☁️ 上傳至 Ragic")
                 
                 # === [新增功能] 顯示上傳成功的歷史訊息 (不會一閃即逝) ===
@@ -1444,14 +1568,13 @@ def main():
                                 files_payload = {}
                                 files_payload[RAGIC_MAP['file_xls']] = (
                                     f"Cue_{safe_filename(client_name)}.xlsx", 
-                                    xlsx_temp,
+                                    _xlsx_ragic,
                                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                                 )
-                                
-                                if pdf_bytes:
+                                if _pdf_ragic:
                                     files_payload[RAGIC_MAP['file_pdf']] = (
                                         f"Cue_{safe_filename(client_name)}.pdf", 
-                                        pdf_bytes, 
+                                        _pdf_ragic, 
                                         'application/pdf'
                                     )
 
