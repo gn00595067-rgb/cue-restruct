@@ -185,7 +185,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 for d_idx in range(eff_days):
                     if d_idx < len(r["schedule"]): val = r["schedule"][d_idx]; row_sum += (val if isinstance(val, (int, float)) else 0); c_s = ws.cell(curr_row, 8+d_idx); c_s.value = "" if (val == 0 or val is None) else val; c_s.number_format = FMT_NUMBER; c_s.alignment = ALIGN_CENTER; c_s.font = FONT_WEEKEND if (start_dt + timedelta(days=d_idx)).weekday() >= 5 else FONT_DAILY
                 ws.cell(curr_row, spots_col_idx, row_sum).alignment = ALIGN_CENTER
-                for c_idx in range(1, total_cols + 1): cell = ws.cell(curr_row, c_idx); cell.border = BORDER_ALL_THIN; (cell.font := FONT_16) if c_idx <= 7 or c_idx == spots_col_idx else None
+                for c_idx in range(1, total_cols + 1):
+                    cell = ws.cell(curr_row, c_idx); cell.border = BORDER_ALL_THIN
+                    if c_idx <= 7 or c_idx == spots_col_idx: cell.font = FONT_16
                 curr_row += 1
 
             # 合併相同媒體名稱的欄位；Column 7 依 runs (全省塊、回饋塊) 分別合併
@@ -371,7 +373,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 if r.get('is_pkg_member'): pkg = r['nat_pkg_display'] if idx == 0 else None
                 elif r.get('is_rebate'): pkg = r.get('pkg_display', '回饋') if (idx == 0 or not data[idx-1].get('is_rebate') or data[idx-1].get('is_bonus_rebate') != r.get('is_bonus_rebate')) else None
                 if pkg is not None: ws.cell(curr_row, end_c_start+2, pkg).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start+2).number_format = FMT_MONEY if isinstance(pkg, (int, float)) else '@'
-                for c_idx in range(1, total_cols + 1): c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN; (c.font := FONT_16) if (c_idx < 6 or c_idx >= end_c_start) else None
+                for c_idx in range(1, total_cols + 1):
+                    c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN
+                    if c_idx < 6 or c_idx >= end_c_start: c.font = FONT_16
                 set_border(ws.cell(curr_row, 5), right=BS_MEDIUM); curr_row += 1
             ws.merge_cells(start_row=start_merge, start_column=1, end_row=curr_row-1, end_column=1)
             i = 0
@@ -582,7 +586,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 if r.get('is_pkg_member'): pkg = r['nat_pkg_display'] if idx == 0 else None
                 elif r.get('is_rebate'): pkg = r.get('pkg_display', '回饋') if (idx == 0 or not data[idx-1].get('is_rebate') or data[idx-1].get('is_bonus_rebate') != r.get('is_bonus_rebate')) else None
                 if pkg is not None: ws.cell(curr_row, end_c_start+2, pkg).alignment = ALIGN_CENTER; ws.cell(curr_row, end_c_start+2).number_format = FMT_MONEY if isinstance(pkg, (int, float)) else '@'
-                for c_idx in range(1, total_cols + 1): c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN; (c.font := FONT_16) if (c_idx < 6 or c_idx >= end_c_start) else None
+                for c_idx in range(1, total_cols + 1):
+                    c = ws.cell(curr_row, c_idx); c.border = BORDER_ALL_THIN
+                    if c_idx < 6 or c_idx >= end_c_start: c.font = FONT_16
                 set_border(ws.cell(curr_row, 5), right=BS_MEDIUM); curr_row += 1
             ws.merge_cells(start_row=start_merge, start_column=1, end_row=curr_row-1, end_column=1)
             i = 0
