@@ -47,7 +47,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
     FONT_STD, FONT_BOLD, FONT_TITLE = Font(name=FONT_MAIN, size=12), Font(name=FONT_MAIN, size=14, bold=True), Font(name=FONT_MAIN, size=48, bold=True)
     FONT_HEADER, FONT_DAILY, FONT_REMARKS, FONT_SIGN = Font(name=FONT_MAIN, size=20), Font(name=FONT_MAIN, size=16), Font(name=FONT_MAIN, size=18), Font(name=FONT_MAIN, size=20)
     FONT_16, FONT_16_BOLD = Font(name=FONT_MAIN, size=16), Font(name=FONT_MAIN, size=16, bold=True)
-    FONT_WEEKEND = Font(name=FONT_MAIN, size=16, bold=True, color="0066CC")
+    FONT_WEEKEND = Font(name=FONT_MAIN, size=16)
     FILL_WEEKEND = PatternFill(start_color="FFFFCC", end_color="FFFFCC", fill_type="solid")
     
     # 邊框設定 Helper
@@ -257,6 +257,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c = ws.cell(curr_row, 1); c.value = rm; c.font = Font(name=FONT_MAIN, size=18, color="FF0000" if is_red else "000000")
 
         curr_row += 2; sig_start = curr_row
+        for _r in (sig_start, sig_start+1, sig_start+2): ws.row_dimensions[_r].height = 28
         _sig_font = Font(name=FONT_MAIN, size=20)
         ws.merge_cells(start_row=sig_start, start_column=1, end_row=sig_start, end_column=7); ws.cell(sig_start, 1, "甲    方：東吳廣告股份有限公司").alignment = ALIGN_LEFT; ws.cell(sig_start, 1).font = _sig_font
         ws.merge_cells(start_row=sig_start+1, start_column=1, end_row=sig_start+1, end_column=7); ws.cell(sig_start+1, 1, "統一編號：20935458").alignment = ALIGN_LEFT; ws.cell(sig_start+1, 1).font = _sig_font
@@ -432,6 +433,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c = ws.cell(r_row, r_col_start); c.value = rm; c.font = Font(name=FONT_MAIN, size=18, color=color)
 
         sig_col_start = 1
+        for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
         ws.cell(start_footer, sig_col_start).value = "乙         方："; ws.cell(start_footer, sig_col_start).font = Font(name=FONT_MAIN, size=20)
         ws.cell(start_footer+1, sig_col_start+1).value = client_name; ws.cell(start_footer+1, sig_col_start+1).font = Font(name=FONT_MAIN, size=20)
         ws.cell(start_footer+2, sig_col_start).value = "統一編號："; ws.cell(start_footer+2, sig_col_start).font = Font(name=FONT_MAIN, size=20)
@@ -647,6 +649,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c = ws.cell(r_row, r_col_start); c.value = rm; c.font = Font(name=FONT_MAIN, size=18, color=color)
 
         sig_col_start = 1
+        for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
         
         # 乙方
         ws.cell(start_footer, sig_col_start).value = "乙         方："; ws.cell(start_footer, sig_col_start).font = Font(name=FONT_MAIN, size=20)
