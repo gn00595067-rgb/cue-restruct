@@ -365,6 +365,20 @@ def main():
                         st.error("密碼錯誤")
             else:
                 st.success("✅ 目前狀態：主管模式")
+                # 專案優惠價覆寫改在側邊欄，避免主畫面因登入新增 widget 觸發 Cached ForwardMsg MISS
+                _total = float(st.session_state.get("total_budget_input", st.session_state.get("temp_budget", 1000000)))
+                if "supervisor_last_total_budget" not in st.session_state:
+                    st.session_state.supervisor_last_total_budget = _total
+                if _total != st.session_state.supervisor_last_total_budget:
+                    st.session_state.supervisor_last_total_budget = _total
+                    _override_display = _total
+                else:
+                    _override_display = float(st.session_state.get("supervisor_override_price", _total))
+                st.caption("🔒 專案優惠價覆寫")
+                _ov = st.number_input("最終成交價", value=_override_display, step=10000.0, key="supervisor_override_price", label_visibility="collapsed")
+                st.session_state._supervisor_final_budget = _ov
+                if _ov != _total:
+                    st.caption(f"⚠️ 以 ${_ov:,.0f} 結算")
                 if st.button("登出"):
                     st.session_state.is_supervisor = False
                     st.rerun()
@@ -491,7 +505,7 @@ def main():
             client_name = st.text_input("客戶名稱", def_client)
             client_tax_id = st.text_input("統一編號", def_tax)
         with c2: product_name = st.text_input("產品名稱", def_prod)
-        with c3: total_budget_input = st.number_input("總預算 (未稅 Net)", value=def_budget, step=10000.0)
+        with c3: total_budget_input = st.number_input("總預算 (未稅 Net)", value=def_budget, step=10000.0, key="total_budget_input")
         with c4: prod_cost_input = st.number_input("製作費 (未稅)", value=def_cost, step=1000.0)
         
         with c5_sales: 
@@ -499,26 +513,7 @@ def main():
 
         final_budget_val = total_budget_input
         if st.session_state.is_supervisor:
-            @st.fragment
-            def _supervisor_override_block():
-                st.markdown("---")
-                col_sup1, col_sup2 = st.columns([1, 2])
-                with col_sup1: st.error("🔒 [主管] 專案優惠價覆寫")
-                with col_sup2:
-                    if "supervisor_last_total_budget" not in st.session_state:
-                        st.session_state.supervisor_last_total_budget = float(total_budget_input)
-                    if total_budget_input != st.session_state.supervisor_last_total_budget:
-                        st.session_state.supervisor_last_total_budget = float(total_budget_input)
-                        override_display = float(total_budget_input)
-                    else:
-                        override_display = float(st.session_state.get("supervisor_override_price", total_budget_input))
-                    ov = st.number_input("輸入最終成交價", value=override_display, step=10000.0, key="supervisor_override_price")
-                    st.session_state._supervisor_final_budget = ov
-                    if ov != total_budget_input:
-                        st.caption(f"⚠️ 使用 ${ov:,.0f} 結算")
-                st.markdown("---")
-            _supervisor_override_block()
-            final_budget_val = st.session_state.get("_supervisor_final_budget", total_budget_input)
+            final_budget_val = float(st.session_state.get("_supervisor_final_budget", total_budget_input))
 
         c5, c6 = st.columns(2)
         def_s_date = st.session_state.get('temp_start_date', datetime(2026, 1, 1))
