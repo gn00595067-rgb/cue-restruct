@@ -753,26 +753,28 @@ def main():
         if isinstance(_cue_def_sign, datetime):
             _cue_def_sign = _cue_def_sign.date()
         _cue_def_pay = _last_day_of_month_after(end_date)
-        st.session_state.setdefault("cue_sign_deadline", _cue_def_sign)
-        st.session_state.setdefault("cue_billing_month", "2026年2月")
-        st.session_state.setdefault("cue_payment_date", _cue_def_pay)
-        st.session_state.setdefault("cue_live_update_remarks", True)
 
-        with st.expander("📝 備註欄位設定", expanded=False):
-            st.caption("回簽／請款月份／付款兌現日（付款兌現日預設為走期結束日的下個月最後一天）；勾選「即時更新」後修改欄位時下方備註條列會動態改變。")
-            rc1, rc2, rc3 = st.columns(3)
-            sign_deadline = rc1.date_input("回簽及進單期限", st.session_state.get("cue_sign_deadline", _cue_def_sign), key="cue_sign_deadline")
-            billing_month = rc2.text_input("請款月份", st.session_state.get("cue_billing_month", "2026年2月"), key="cue_billing_month", placeholder="例：2026年2月")
-            payment_date = rc3.date_input("付款兌現日期（預設走期結束下月最後一天）", st.session_state.get("cue_payment_date", _cue_def_pay), key="cue_payment_date")
-            cue_live = st.checkbox("依上列日期即時更新備註（修改欄位時下方條列會動態改變）", value=st.session_state.get("cue_live_update_remarks", True), key="cue_live_update_remarks")
-            if cue_live:
-                _gen_rem = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date))
-                st.session_state.cue_remarks_text = _gen_rem
-            if not cue_live and st.button("依上列日期重新產生備註", key="cue_rem_refresh"):
-                st.session_state.cue_remarks_text = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date))
-                st.rerun()
-            _rem_display = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date)) if cue_live else (st.session_state.get("cue_remarks_text", "") or "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date)))
-            st.text_area("備註全文", value=_rem_display, height=200, key="cue_remarks_text", label_visibility="collapsed", placeholder="留空則依上列三個日期欄位自動產生。", disabled=cue_live)
+        # 有分波段（2 個以上）時只顯示「各波段備註」，隱藏「備註欄位設定」；取消分波段或僅一波段時才顯示「備註欄位設定」
+        if not (use_date_segments and segments and len(segments) > 1):
+            st.session_state.setdefault("cue_sign_deadline", _cue_def_sign)
+            st.session_state.setdefault("cue_billing_month", "2026年2月")
+            st.session_state.setdefault("cue_payment_date", _cue_def_pay)
+            st.session_state.setdefault("cue_live_update_remarks", True)
+            with st.expander("📝 備註欄位設定", expanded=False):
+                st.caption("回簽／請款月份／付款兌現日（付款兌現日預設為走期結束日的下個月最後一天）；勾選「即時更新」後修改欄位時下方備註條列會動態改變。")
+                rc1, rc2, rc3 = st.columns(3)
+                sign_deadline = rc1.date_input("回簽及進單期限", st.session_state.get("cue_sign_deadline", _cue_def_sign), key="cue_sign_deadline")
+                billing_month = rc2.text_input("請款月份", st.session_state.get("cue_billing_month", "2026年2月"), key="cue_billing_month", placeholder="例：2026年2月")
+                payment_date = rc3.date_input("付款兌現日期（預設走期結束下月最後一天）", st.session_state.get("cue_payment_date", _cue_def_pay), key="cue_payment_date")
+                cue_live = st.checkbox("依上列日期即時更新備註（修改欄位時下方條列會動態改變）", value=st.session_state.get("cue_live_update_remarks", True), key="cue_live_update_remarks")
+                if cue_live:
+                    _gen_rem = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date))
+                    st.session_state.cue_remarks_text = _gen_rem
+                if not cue_live and st.button("依上列日期重新產生備註", key="cue_rem_refresh"):
+                    st.session_state.cue_remarks_text = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date))
+                    st.rerun()
+                _rem_display = "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date)) if cue_live else (st.session_state.get("cue_remarks_text", "") or "\n".join(get_remarks_text(sign_deadline, billing_month, payment_date)))
+                st.text_area("備註全文", value=_rem_display, height=200, key="cue_remarks_text", label_visibility="collapsed", placeholder="留空則依上列三個日期欄位自動產生。", disabled=cue_live)
 
         if use_date_segments and segments and len(segments) > 1:
             st.markdown("#### 📝 各波段備註（有分波段時可分別設定）")
