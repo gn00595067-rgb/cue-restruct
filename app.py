@@ -356,6 +356,8 @@ def main():
                 if st.button("登入"):
                     if pwd == SUPERVISOR_PASSWORD:
                         st.session_state.is_supervisor = True
+                        for k in ("supervisor_last_total_budget", "supervisor_override_price"):
+                            st.session_state.pop(k, None)
                         st.rerun()
                     else:
                         st.error("密碼錯誤")
