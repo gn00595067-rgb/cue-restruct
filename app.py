@@ -352,14 +352,13 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                 st.session_state.get("aq_payment_date", _def_pay),
             ))
             st.rerun()
-        aq_remarks_text = st.text_area(
+        st.text_area(
             "備註全文（預設範本，各波段可再個別修改）",
             value=st.session_state.get("aq_remarks_text", "\n".join(_default_rem_lines)),
             height=220,
             key="aq_remarks_text",
             help="此為預設備註範本；下方每個波段都有「本波備註」可單獨設定該波的 Remarks。",
         )
-        st.session_state.aq_remarks_text = aq_remarks_text
 
     _default_rem_str = st.session_state.get("aq_remarks_text", "\n".join(_default_rem_lines)) or ""
 
