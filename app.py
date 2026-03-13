@@ -82,9 +82,13 @@ DEFAULT_STATES = {
     "cue_mode": "一般CUE",
 }
 
-for key, default_val in DEFAULT_STATES.items():
-    if key not in st.session_state:
-        st.session_state[key] = default_val
+def _init_session_state():
+    """在 main() 內呼叫，避免 import 時 st.session_state 未就緒導致 KeyError。"""
+    try:
+        for key, default_val in DEFAULT_STATES.items():
+            st.session_state.setdefault(key, default_val)
+    except KeyError:
+        pass
 
 
 def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, regions_order, fmt_options, fmt_idx, sales_map):
@@ -340,6 +344,7 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
 # 主程式邏輯 (Main Execution Block)
 # =============================================================================
 def main():
+    _init_session_state()
     try:
         with st.spinner("正在讀取 Google 試算表設定檔..."):
             STORE_COUNTS, STORE_COUNTS_NUM, PRICING_DB, SEC_FACTORS, SALES_MAP, err_msg = load_config_from_cloud(GSHEET_SHARE_URL)
