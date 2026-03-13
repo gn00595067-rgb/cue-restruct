@@ -339,7 +339,7 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
 
     st.markdown("---")
     st.subheader("📝 各波段備註（每個波段可分別設定）")
-    st.caption("以下每個波段都有獨立的「回簽／請款月份／付款兌現日」與備註全文；付款兌現日預設為**該波段結束日的下個月最後一天**。修改欄位後按「依上列日期重新產生本波備註」可讓下方備註全文跟著更新。")
+    st.caption("以下每個波段都有獨立的「回簽／請款月份／付款兌現日」與備註全文；付款兌現日預設為**該波段結束日的下個月最後一天**。勾選「依上列日期即時更新備註」後，修改上方欄位時下方條列會即時變動；不勾選時可手動編輯或按鈕產生。")
     for i, w in enumerate(waves):
         start_d = w["start"]
         end_d = w["end"]
@@ -361,7 +361,7 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
             _pay = _pay.date() if hasattr(_pay, "date") else _def_pay_wave
         _ta_val = w.get("remarks_text") or "\n".join(get_remarks_text(_sig, _bill, _pay))
         with st.expander(f"**波段 {i+1}**：{start_d} ~ {end_d} — 本波備註", expanded=(i == 0)):
-            st.caption("回簽及進單期限、請款月份、付款兌現日期（預設為本波結束日的下個月最後一天）；修改後按鈕可讓下方備註全文依此更新。")
+            st.caption("回簽及進單期限、請款月份、付款兌現日期（預設為本波結束日的下個月最後一天）；勾選「即時更新」後改欄位會即時更新下方條列。")
             r1, r2, r3 = st.columns(3)
             with r1:
                 _sig = st.date_input("回簽及進單期限", _sig, key=f"aq_wave_sign_{i}")
@@ -372,20 +372,36 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
             st.session_state.aq_waves[i]["sign_deadline"] = _sig
             st.session_state.aq_waves[i]["billing_month"] = _bill
             st.session_state.aq_waves[i]["payment_date"] = _pay
-            if st.button("依上列日期重新產生本波備註", key=f"aq_wave_rem_btn_{i}"):
+            live_update = st.checkbox(
+                "依上列日期即時更新備註（修改欄位時下方條列會動態改變）",
+                value=st.session_state.aq_waves[i].get("live_update_remarks", True),
+                key=f"aq_wave_live_rem_{i}",
+            )
+            st.session_state.aq_waves[i]["live_update_remarks"] = live_update
+            if live_update:
+                _gen_rem = "\n".join(get_remarks_text(_sig, _bill, _pay))
+                st.session_state[f"aq_wave_remarks_{i}"] = _gen_rem
+                st.session_state.aq_waves[i]["remarks_text"] = _gen_rem
+            if not live_update and st.button("依上列日期重新產生本波備註", key=f"aq_wave_rem_btn_{i}"):
                 _new_rem = "\n".join(get_remarks_text(_sig, _bill, _pay))
                 st.session_state.aq_waves[i]["remarks_text"] = _new_rem
                 st.session_state[f"aq_wave_remarks_{i}"] = _new_rem
                 st.rerun()
+            if live_update:
+                _display_val = _gen_rem
+            else:
+                _display_val = st.session_state.get(f"aq_wave_remarks_{i}", _ta_val) or _ta_val
             st.text_area(
                 "本波備註內容",
-                value=_ta_val,
+                value=_display_val,
                 height=200,
                 key=f"aq_wave_remarks_{i}",
                 label_visibility="collapsed",
                 placeholder="留空則依上列三個日期欄位自動產生。可輸入多行，每行會成為一條備註。",
+                disabled=live_update,
             )
-            st.session_state.aq_waves[i]["remarks_text"] = st.session_state.get(f"aq_wave_remarks_{i}", _ta_val) or ""
+            if not live_update:
+                st.session_state.aq_waves[i]["remarks_text"] = st.session_state.get(f"aq_wave_remarks_{i}", _ta_val) or ""
 
     st.markdown("---")
     st.subheader("📥 各波段下載（每波獨立 Excel / PDF）")
