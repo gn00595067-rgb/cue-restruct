@@ -80,7 +80,8 @@ def _render_one_month_table(rows, days_in_month, month_start, month_end, full_to
     total_row_html += f"<td style='font-weight:bold; background-color:#d0d0d0; border: 2px solid #000;'>{grand_total_spots}</td></tr>"
     vat_month = int(round(budget_month * 0.05))
     footer_html = f"<div style='margin-top:10px; font-weight:bold; text-align:right;'>製作費: ${prod_month:,}<br>5% VAT: ${vat_month:,}<br>Grand Total: ${grand_total_month:,}</div>"
-    return f"<div style='margin-bottom:24px;'><div style='margin-bottom:4px; font-weight:bold;'>Period: {month_start.strftime('%Y.m.%d')} - {month_end.strftime('%Y.m.%d')}</div><table><thead><tr>{th_fixed}{date_th1}{th_total_right}</tr><tr>{date_th2}</tr></thead><tbody>{tbody}{total_row_html}</tbody></table>{footer_html}</div>"
+    # Period 日期格式修正：%Y.%m.%d（原本誤用 'm' 導致畫面顯示 2026.m.01）
+    return f"<div style='margin-bottom:24px;'><div style='margin-bottom:4px; font-weight:bold;'>Period: {month_start.strftime('%Y.%m.%d')} - {month_end.strftime('%Y.%m.%d')}</div><table><thead><tr>{th_fixed}{date_th1}{th_total_right}</tr><tr>{date_th2}</tr></thead><tbody>{tbody}{total_row_html}</tbody></table>{footer_html}</div>"
 
 
 def generate_html_preview(rows, days_cnt, start_dt, end_dt, c_name, tax_id, p_display, format_type, remarks, total_list, grand_total, budget, prod):
@@ -127,7 +128,7 @@ def generate_html_preview(rows, days_cnt, start_dt, end_dt, c_name, tax_id, p_di
             grand_total_month = int(round((budget + int(round(budget * 0.05))) * ratio))
             prod_month = int(round(prod * ratio))
             table_html = _render_one_month_table(rows_month, days_in_month, m_start, m_end, total_days, format_type, header_cls, budget_month, total_list_month, grand_total_month, prod_month)
-            page_header = f"<div style='margin-bottom:10px;'>{client_info_base}<br><b>Period：</b>{m_start.strftime('%Y.m.%d')} - {m_end.strftime('%Y.m.%d')}</div>"
+            page_header = f"<div style='margin-bottom:10px;'>{client_info_base}<br><b>Period：</b>{m_start.strftime('%Y.%m.%d')} - {m_end.strftime('%Y.%m.%d')}</div>"
             one_page = f"<html><head><style>{css}</style></head><body>{page_header}<div style='overflow-x:auto;'>{table_html}</div>{remarks_block}</body></html>"
             pages.append(one_page)
         return pages
@@ -245,4 +246,5 @@ def generate_html_preview(rows, days_cnt, start_dt, end_dt, c_name, tax_id, p_di
 
     client_info_html = f"<b>客戶名稱：</b>{html_escape(c_name)} &nbsp; <b>統編：</b>{html_escape(tax_id)}"
 
-    return f"<html><head><style>{css}</style></head><body><div style='margin-bottom:10px;'>{client_info_html} &nbsp; <b>Product：</b>{html_escape(p_display)}<br><b>Period：</b>{start_dt.strftime('%Y.m.%d')} - {end_dt.strftime('%Y.m.%d')} &nbsp; <b>Medium：</b>{html_escape(medium_str)}</div><div style='overflow-x:auto;'><table><thead><tr>{th_fixed}{date_th1}{th_total_right}</tr><tr>{date_th2}</tr></thead><tbody>{tbody}{total_row_html}</tbody></table></div>{footer_html}<div style='margin-top:10px; font-size:11px;'><b>Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力</b><br>{remarks_html}</div></body></html>"
+    # Period 日期格式修正：%Y.%m.%d（原本誤用 'm' 導致畫面顯示 2026.m.01）
+    return f"<html><head><style>{css}</style></head><body><div style='margin-bottom:10px;'>{client_info_html} &nbsp; <b>Product：</b>{html_escape(p_display)}<br><b>Period：</b>{start_dt.strftime('%Y.%m.%d')} - {end_dt.strftime('%Y.%m.%d')} &nbsp; <b>Medium：</b>{html_escape(medium_str)}</div><div style='overflow-x:auto;'><table><thead><tr>{th_fixed}{date_th1}{th_total_right}</tr><tr>{date_th2}</tr></thead><tbody>{tbody}{total_row_html}</tbody></table></div>{footer_html}<div style='margin-top:10px; font-size:11px;'><b>Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力</b><br>{remarks_html}</div></body></html>"

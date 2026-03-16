@@ -535,7 +535,9 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                 if isinstance(r.get("pkg_display"), (int, float)) and j < len(scaled):
                     r["pkg_display"] = scaled[j]
             budget_wave = price_override
-        p_str = f"{'、'.join([str(r['seconds']) + '秒' for r in rows])} {product_name}"
+        # 年約/季約細 CUE：標題 Product 僅顯示「秒數種類」一次，例如「5秒」而不是重複多次
+        unique_secs = sorted(list({r['seconds'] for r in rows}))
+        p_str = f"{'、'.join([f'{s}秒' for s in unique_secs])} {product_name}"
         _wave_default_rem = "\n".join(get_remarks_text(
             w.get("sign_deadline", _def_sign),
             w.get("billing_month", "2026年2月"),
