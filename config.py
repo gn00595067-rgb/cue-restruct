@@ -28,6 +28,8 @@ DEFAULT_RAGIC_URL = "https://ap13.ragic.com/soundwow/cue/2?PAGEID=jQV"
 DEFAULT_RAGIC_KEY = "MEwyTEExWHJQamRDalZ6N0hzQ2syZlBHNUNJeWhwZFBrM3BMM2tDRWd4aGIvZ1JxWTlYaGkyM0RoRmo1ZExHaA=="
 
 # Ragic 欄位 ID 對照表
+# 若 Ragic 表單改版、欄位 ID 變更，請用「除錯模式：查看欄位ID」取得實際 ID 並更新此表。
+# 預算：budget_raw=原始/未稅總預算（載入與預覽用），budget_fin=最終成交價（上傳時一併寫入）。
 RAGIC_MAP = {
     'client':     '1015309',
     'product':    '1015310',

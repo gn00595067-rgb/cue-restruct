@@ -82,6 +82,7 @@ from utils import (
     safe_filename,
     get_remarks_text,
     format_campaign_details,
+    build_ragic_details_full,
     expand_schedule_to_calendar
 )
 from data_loader import load_config_from_cloud
@@ -94,7 +95,8 @@ from annual_quarter_cue import build_wave_rows, distribute_by_wave_days, round_t
 from ragic_api import (
     search_ragic_records,
     upload_to_ragic,
-    restore_state_from_ragic
+    restore_state_from_ragic,
+    _ragic_number,
 )
 
 # =============================================================================
@@ -143,6 +145,68 @@ def _init_session_state():
             st.session_state.setdefault(key, default_val)
     except KeyError:
         pass
+
+
+def _get_ragic_extra_state(row_groups):
+    """
+    從 session_state 彙整「投放參數詳情」擴充欄位（交換/回饋/分波段/備註/業務加贈等），
+    供寫入 Ragic details 後可 100% 還原。
+    """
+    ss = st.session_state
+    state = {}
+    # 基本與分段
+    for k in ("is_barter_contract", "cue_mode", "temp_format_type", "use_date_segments", "apply_rebate",
+              "apply_nat_rad_rebate", "rebate_nat_destination", "apply_nat_cf_rebate",
+              "apply_region_rad_rebate", "rebate_region_destination",
+              "bonus_rebate_pct", "cue_live_update_remarks", "rad_use_region_share", "fv_use_region_share"):
+        if k in ss:
+            state[k] = ss[k]
+    if ss.get("use_date_segments") and "date_segments" in ss and ss["date_segments"]:
+        state["date_segments"] = [[str(s), str(e)] for s, e in ss["date_segments"]]
+    # 回饋／主管加贈：bonus 相關鍵（動態鍵如 bonus_rs_20 用 session_state 掃描）
+    for k, v in list(ss.items()):
+        if isinstance(k, str) and k.startswith("bonus_") and k not in state:
+            if isinstance(v, (bool, int, float, str)) or (isinstance(v, list) and all(isinstance(x, str) for x in v)):
+                state[k] = v
+    # 備註
+    for k in ("cue_sign_deadline", "cue_billing_month", "cue_payment_date", "cue_remarks_text"):
+        if k in ss and ss[k] is not None:
+            state[k] = ss[k]
+    # 各波段備註
+    if "cue_seg_remarks" in ss and ss["cue_seg_remarks"]:
+        state["cue_seg_remarks"] = {}
+        for i, data in ss["cue_seg_remarks"].items():
+            state["cue_seg_remarks"][str(i)] = {kk: (vv.isoformat() if hasattr(vv, "isoformat") and not isinstance(vv, type) else vv) for kk, vv in data.items()}
+    # 區域比例
+    if "_rad_region_list" in ss and ss["_rad_region_list"]:
+        state["_rad_region_list"] = list(ss["_rad_region_list"])
+        for r in ss["_rad_region_list"]:
+            key = f"rad_region_{r}"
+            if key in ss:
+                state[key] = ss[key]
+    if "_fv_region_list" in ss and ss["_fv_region_list"]:
+        state["_fv_region_list"] = list(ss["_fv_region_list"])
+        for r in ss["_fv_region_list"]:
+            key = f"fv_region_{r}"
+            if key in ss:
+                state[key] = ss[key]
+    # 業務加贈：依 row_groups 的 skey 從 session_state 讀取
+    if row_groups:
+        custom = []
+        for g in row_groups:
+            media, sec, region_key = g["key"]
+            skey = f"cb_{media}_{sec}_{region_key}".replace(" ", "_")
+            if ss.get(f"cb_en_{skey}") and (ss.get(f"cb_spots_{skey}") or 0) > 0:
+                custom.append({
+                    "key": [media, str(sec), region_key],
+                    "enabled": True,
+                    "spots_per_day": ss.get(f"cb_spots_{skey}", 0),
+                    "date_start": ss.get(f"cb_start_{skey}"),
+                    "date_end": ss.get(f"cb_end_{skey}"),
+                })
+        if custom:
+            state["custom_bonus"] = custom
+    return state
 
 
 def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, regions_order, fmt_options, fmt_idx, sales_map):
@@ -604,8 +668,8 @@ def main():
                     st.markdown(f"**詳細預覽 #{sel_rec.get('_ragicId')}**")
                     st.caption(f"Cue號: {sel_rec.get(RAGIC_FIELD_SERIAL, '未設定')}")
                     col_p1, col_p2 = st.columns(2)
-                    col_p1.metric("預算", f"${float(sel_rec.get(RAGIC_MAP['budget_raw'], 0)):,.0f}")
-                    col_p2.metric("製作費", f"${float(sel_rec.get(RAGIC_MAP['prod_cost'], 0)):,.0f}")
+                    col_p1.metric("預算", f"${_ragic_number(sel_rec.get(RAGIC_MAP['budget_raw'])):,.0f}")
+                    col_p2.metric("製作費", f"${_ragic_number(sel_rec.get(RAGIC_MAP['prod_cost'])):,.0f}")
                     st.text(f"走期: {sel_rec.get(RAGIC_MAP['date_start'],'')} ~ {sel_rec.get(RAGIC_MAP['date_end'],'')}")
                 
                 if st.button("📋 載入此專案設定"):
@@ -1546,8 +1610,8 @@ def main():
                     with c_conf2:
                         if st.button("✅ 確認上傳"):
                             with st.spinner("正在上傳資料與檔案..."):
-                                
-                                campaign_summary = format_campaign_details(config)
+                                row_groups_upload = get_row_groups(rows, REGIONS_ORDER)
+                                campaign_summary = build_ragic_details_full(config, _get_ragic_extra_state(row_groups_upload))
                                 sales_nickname = SALES_MAP.get(sales_person, sales_person)
 
                                 data_payload = {

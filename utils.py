@@ -4,6 +4,7 @@
 """
 
 import re
+import json
 from datetime import datetime, timedelta, date
 from config import REGION_DISPLAY_MAP
 
@@ -146,3 +147,45 @@ def format_campaign_details(config):
         info = f"【{media}】 預算佔比: {settings.get('share')}% | 秒數分配: {sec_str} | 區域: {reg_str}"
         details.append(info)
     return "\n".join(details)
+
+
+# 投放參數詳情擴充：Ragic details 欄位中 [EXT] 之後的 JSON 鍵名（供寫入/還原對照）
+RAGIC_EXT_KEYS = [
+    "is_barter_contract", "cue_mode", "temp_format_type", "use_date_segments", "date_segments",
+    "apply_rebate", "apply_nat_rad_rebate", "rebate_nat_destination", "apply_nat_cf_rebate",
+    "apply_region_rad_rebate", "rebate_region_destination",
+    "bonus_rebate_pct", "bonus_cb_rad", "bonus_rad_nat", "bonus_rad_reg", "bonus_rad_share", "bonus_rad_sec",
+    "bonus_cb_fv", "bonus_fv_nat", "bonus_fv_reg", "bonus_fv_share", "bonus_fv_sec",
+    "bonus_cb_cf", "bonus_cf_share", "bonus_cf_sec",
+    "cue_sign_deadline", "cue_billing_month", "cue_payment_date", "cue_live_update_remarks", "cue_remarks_text",
+    "cue_seg_remarks", "custom_bonus",
+    "rad_use_region_share", "fv_use_region_share", "_rad_region_list", "_fv_region_list",
+]
+
+
+def build_ragic_details_full(config, state_dict):
+    """
+    組裝「投放參數詳情」完整字串：媒體區塊（與舊版相容）+ [EXT] + JSON（交換/回饋/分波段/備註等），
+    供上傳至 Ragic 的 details 欄位，以利 100% 還原。
+    state_dict: 來自 app 的 session_state 子集，僅含可序列化鍵；日期請先轉成 str。
+    """
+    media_block = format_campaign_details(config)
+    # 只取出可序列化的 state，且 date/datetime 轉字串
+    def _to_serializable(obj):
+        if obj is None:
+            return None
+        if isinstance(obj, (date, datetime)) and not isinstance(obj, type):
+            return obj.isoformat()
+        if isinstance(obj, list):
+            return [_to_serializable(x) for x in obj]
+        if isinstance(obj, dict):
+            return {str(kk): _to_serializable(vv) for kk, vv in obj.items()}
+        return obj
+
+    out = {}
+    for k, v in state_dict.items():
+        if v is None:
+            continue
+        out[k] = _to_serializable(v)
+    ext_json = json.dumps(out, ensure_ascii=False, default=str)
+    return media_block + "\n[EXT]\n" + ext_json

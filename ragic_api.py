@@ -5,9 +5,10 @@ Ragic API 整合模組 (Ragic API Integration)
 
 import time
 import re
+import json
 import streamlit as st
 import requests
-from datetime import datetime
+from datetime import datetime, date
 from config import RAGIC_FIELD_SERIAL, RAGIC_MAP
 
 
@@ -135,6 +136,19 @@ def search_ragic_records(api_url, api_key, keyword=None, limit=20):
     return []
 
 
+def _ragic_number(val, default=0):
+    """Ragic 可能回傳數字或字串（含逗號），轉成 float。"""
+    if val is None or val == "":
+        return float(default)
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip().replace(",", "")
+    try:
+        return float(s)
+    except ValueError:
+        return float(default)
+
+
 def restore_state_from_ragic(record):
     """
     從 Ragic Record 解析資料並還原到 st.session_state。
@@ -143,18 +157,14 @@ def restore_state_from_ragic(record):
     """
     try:
         # 1. 基礎欄位還原 (使用 RAGIC_MAP 統一管理欄位 ID)
-        st.session_state['temp_client_name'] = record.get(RAGIC_MAP['client'], '')
-        st.session_state['temp_product_name'] = record.get(RAGIC_MAP['product'], '')
+        st.session_state['temp_client_name'] = record.get(RAGIC_MAP['client'], '') or ''
+        st.session_state['temp_product_name'] = record.get(RAGIC_MAP['product'], '') or ''
 
-        try:
-            st.session_state['temp_budget'] = float(record.get(RAGIC_MAP['budget_raw'], 0))
-        except:
-            st.session_state['temp_budget'] = 0.0
-
-        try:
-            st.session_state['temp_prod_cost'] = float(record.get(RAGIC_MAP['prod_cost'], 0))
-        except:
-            st.session_state['temp_prod_cost'] = 0.0
+        st.session_state['temp_budget'] = _ragic_number(record.get(RAGIC_MAP['budget_raw']), 0)
+        st.session_state['temp_prod_cost'] = _ragic_number(record.get(RAGIC_MAP['prod_cost']), 0)
+        # 讓主畫面「總預算」顯示載入值：同步到 _total_budget_for_sidebar，並清除主管覆寫
+        st.session_state['_total_budget_for_sidebar'] = st.session_state['temp_budget']
+        st.session_state.pop('_supervisor_final_budget', None)
 
         st.session_state['temp_sales'] = record.get(RAGIC_MAP['sales'], '')
         st.session_state['temp_tax_id'] = record.get(RAGIC_MAP['tax_id'], '')
@@ -243,6 +253,96 @@ def restore_state_from_ragic(record):
                         st.session_state[f"cs_{s_int}"] = int(s_pct)
                     st.session_state['cf_sec'] = selected_secs
 
+        # 3. 投放參數詳情擴充 [EXT] JSON：交換／回饋／分波段／備註／業務加贈等
+        if "[EXT]" in details:
+            try:
+                ext_part = details.split("[EXT]", 1)[-1].strip()
+                if ext_part:
+                    ext_data = json.loads(ext_part)
+                    _apply_ext_state(ext_data)
+            except (json.JSONDecodeError, TypeError) as e:
+                pass  # 舊資料無 [EXT] 或 JSON 損壞時略過，不影響媒體區塊已還原
+
         return True, "✅ 資料載入成功！請檢查下方設定。"
     except Exception as e:
         return False, f"❌ 解析失敗: {e}"
+
+
+def _parse_iso_date(s):
+    """字串轉 date/datetime，供還原用。"""
+    if s is None or s == "":
+        return None
+    if isinstance(s, (date, datetime)):
+        return s.date() if hasattr(s, "date") else s
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            d = datetime.strptime(str(s).split("T")[0].split(" ")[0], fmt)
+            return d.date() if hasattr(d, "date") else d
+        except ValueError:
+            continue
+    return None
+
+
+def _apply_ext_state(ext_data):
+    """將 [EXT] JSON 的鍵值寫回 st.session_state，支援 100% 還原。"""
+    if not ext_data or not isinstance(ext_data, dict):
+        return
+    ss = st.session_state
+    date_keys = ("cue_sign_deadline", "cue_payment_date")
+    date_seg_keys = ("sign_deadline", "payment_date")  # cue_seg_remarks[i] 內
+
+    for k, v in ext_data.items():
+        if v is None:
+            continue
+        if k == "date_segments" and isinstance(v, list):
+            segs = []
+            for pair in v:
+                if isinstance(pair, (list, tuple)) and len(pair) >= 2:
+                    s, e = _parse_iso_date(pair[0]), _parse_iso_date(pair[1])
+                    if s and e:
+                        segs.append((s, e))
+            if segs:
+                ss["date_segments"] = segs
+                ss["use_date_segments"] = True
+            continue
+        if k == "cue_seg_remarks" and isinstance(v, dict):
+            seg_rem = {}
+            for ki, data in v.items():
+                if not isinstance(data, dict):
+                    continue
+                idx = int(ki) if str(ki).isdigit() else ki
+                seg_rem[idx] = {}
+                for kk, vv in data.items():
+                    if kk in date_seg_keys and vv:
+                        seg_rem[idx][kk] = _parse_iso_date(vv)
+                    else:
+                        seg_rem[idx][kk] = vv
+            ss["cue_seg_remarks"] = seg_rem
+            continue
+        if k == "custom_bonus" and isinstance(v, list):
+            for item in v:
+                if not isinstance(item, dict) or not item.get("enabled"):
+                    continue
+                key_list = item.get("key")
+                if isinstance(key_list, list) and len(key_list) >= 3:
+                    media, sec, region_key = key_list[0], key_list[1], key_list[2]
+                    skey = f"cb_{media}_{sec}_{region_key}".replace(" ", "_")
+                    ss[f"cb_en_{skey}"] = True
+                    ss[f"cb_spots_{skey}"] = int(item.get("spots_per_day", 0) or 0)
+                    start_d = _parse_iso_date(item.get("date_start"))
+                    end_d = _parse_iso_date(item.get("date_end"))
+                    if start_d:
+                        ss[f"cb_start_{skey}"] = start_d
+                    if end_d:
+                        ss[f"cb_end_{skey}"] = end_d
+            continue
+        if k in date_keys and v:
+            parsed = _parse_iso_date(v)
+            if parsed:
+                ss[k] = parsed
+            continue
+        # 其餘鍵直接寫入（bool, int, str, list）
+        try:
+            ss[k] = v
+        except Exception:
+            pass
