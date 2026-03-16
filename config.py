@@ -9,7 +9,7 @@
 
 # Google Sheet 設定檔連結 (需開啟共用權限)
 # 包含: Stores (店舖數), Factors (秒數係數), Pricing (定價), Sales (業務名單)
-GSHEET_SHARE_URL = "https://docs.google.com/spreadsheets/d/1bzmG-N8XFsj8m3LUPqA8K70AcIqaK4Qhq1VPWcK0w_s/edit?usp=sharing"
+GSHEET_SHARE_URL = "https://docs.google.com/spreadsheets/d/1g36WdYPLQgWk20VkPN7cOmyTDAl3Lp8vFd_v4ptmRec/edit?usp=sharing"
 
 # 鉑霖行銷 Logo 下載連結 (用於 Excel 報表)
 BOLIN_LOGO_URL = "https://drive.google.com/uc?export=view&id=1KhkTDsLtmFqPq1Bj5gD-16kBBSeEdE9i"
