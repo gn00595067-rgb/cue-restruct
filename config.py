@@ -30,6 +30,7 @@ DEFAULT_RAGIC_KEY = "MEwyTEExWHJQamRDalZ6N0hzQ2syZlBHNUNJeWhwZFBrM3BMM2tDRWd4aGI
 # Ragic 欄位 ID 對照表
 # 若 Ragic 表單改版、欄位 ID 變更，請用「除錯模式：查看欄位ID」取得實際 ID 並更新此表。
 # 預算：budget_raw=原始/未稅總預算（載入與預覽用），budget_fin=最終成交價（上傳時一併寫入）。
+# 平台細項：請先在 Ragic 表單新增「平台細項」欄位，再用除錯模式取得該欄位 ID，加入下方 RAGIC_MAP 即可上傳。
 RAGIC_MAP = {
     'client':     '1015309',
     'product':    '1015310',
@@ -44,7 +45,7 @@ RAGIC_MAP = {
     'bill_month': '1015318',
     'date_pay':   '1015317',
     'details':    '1015319',
-    'platform_detail': '1015889',
+    # 'platform_detail': '1015889',  # 表單尚未有此欄位時請先註解；新增欄位後用除錯模式取得 ID 再取消註解
     'file_xls':   '1015320',
     'file_pdf':   '1015321',
     'tax_id':     '1015764'

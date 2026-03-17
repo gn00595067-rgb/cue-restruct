@@ -1632,9 +1632,10 @@ def main():
                                     RAGIC_MAP['bill_month']: billing_month,
                                     RAGIC_MAP['date_pay']:   str(payment_date),
                                     RAGIC_MAP['details']:    campaign_summary,
-                                    RAGIC_MAP['platform_detail']: platform_detail,
                                     RAGIC_MAP['tax_id']:     client_tax_id
                                 }
+                                if RAGIC_MAP.get('platform_detail'):
+                                    data_payload[RAGIC_MAP['platform_detail']] = platform_detail
 
                                 files_payload = {}
                                 files_payload[RAGIC_MAP['file_xls']] = (
