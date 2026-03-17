@@ -45,7 +45,7 @@ RAGIC_MAP = {
     'bill_month': '1015318',
     'date_pay':   '1015317',
     'details':    '1015319',
-    # 'platform_detail': '1015889',  # 表單尚未有此欄位時請先註解；新增欄位後用除錯模式取得 ID 再取消註解
+    'platform_detail': '1015892',
     'file_xls':   '1015320',
     'file_pdf':   '1015321',
     'tax_id':     '1015764'
