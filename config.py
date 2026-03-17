@@ -44,6 +44,7 @@ RAGIC_MAP = {
     'bill_month': '1015318',
     'date_pay':   '1015317',
     'details':    '1015319',
+    'platform_detail': '1015889',
     'file_xls':   '1015320',
     'file_pdf':   '1015321',
     'tax_id':     '1015764'

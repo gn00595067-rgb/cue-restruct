@@ -189,3 +189,79 @@ def build_ragic_details_full(config, state_dict):
         out[k] = _to_serializable(v)
     ext_json = json.dumps(out, ensure_ascii=False, default=str)
     return media_block + "\n[EXT]\n" + ext_json
+
+
+def build_platform_detail_text(rows, config):
+    """
+    產出 Ragic「平台細項」欄位文字：只要有投放的平台/區域（含回饋、加贈等插入列）就記錄。
+    - 家樂福：有出現就顯示「家樂福」
+    - 全家廣播：全省（is_national 或 regions=['全省']）顯示「全家全頻」；非全省則依區域顯示「全家北頻/桃頻/中頻/南頻/高頻/宜頻」
+    - 新鮮視：全省顯示「新鮮視全區」；非全省則依區域顯示「新鮮視北北基/桃竹苗/中彰投/雲嘉南/高高屏/宜花東」
+    """
+    if not rows:
+        return ""
+
+    region_to_family = {
+        "北區": "北頻",
+        "桃竹苗": "桃頻",
+        "中區": "中頻",
+        "雲嘉南": "南頻",
+        "高屏": "高頻",
+        "東區": "宜頻",
+    }
+    region_to_fv = {
+        "北區": "北北基",
+        "桃竹苗": "桃竹苗",
+        "中區": "中彰投",
+        "雲嘉南": "雲嘉南",
+        "高屏": "高高屏",
+        "東區": "宜花東",
+    }
+
+    # 先從 rows 收集實際出現的平台/區域（含回饋/加贈等插入列）
+    seen = {"全家廣播": set(), "新鮮視": set(), "家樂福": False}
+    for r in rows:
+        media = r.get("media")
+        if media == "家樂福":
+            seen["家樂福"] = True
+            continue
+        region = r.get("region")
+        if media in ("全家廣播", "新鮮視") and region:
+            seen[media].add(str(region))
+
+    out = []
+
+    # 全家廣播：若 config 判定為全省，顯示「全家全頻」；否則依實際出現區域列出
+    rad_cfg = config.get("全家廣播") if isinstance(config, dict) else None
+    rad_is_nat = bool(rad_cfg and (rad_cfg.get("is_national") or rad_cfg.get("regions") == ["全省"]))
+    if seen["全家廣播"]:
+        if rad_is_nat:
+            out.append("全家全頻")
+        else:
+            order = ["北區", "桃竹苗", "中區", "雲嘉南", "高屏", "東區"]
+            for reg in order:
+                if reg in seen["全家廣播"] and reg in region_to_family:
+                    out.append(f"全家{region_to_family[reg]}")
+
+    # 家樂福
+    if seen["家樂福"]:
+        out.append("家樂福")
+
+    # 新鮮視：若 config 判定為全省，顯示「新鮮視全區」；否則依實際出現區域列出
+    fv_cfg = config.get("新鮮視") if isinstance(config, dict) else None
+    fv_is_nat = bool(fv_cfg and (fv_cfg.get("is_national") or fv_cfg.get("regions") == ["全省"]))
+    if seen["新鮮視"]:
+        if fv_is_nat:
+            out.append("新鮮視全區")
+        else:
+            order = ["北區", "桃竹苗", "中區", "雲嘉南", "高屏", "東區"]
+            for reg in order:
+                if reg in seen["新鮮視"] and reg in region_to_fv:
+                    out.append(f"新鮮視{region_to_fv[reg]}")
+
+    # 去重並保序
+    dedup = []
+    for x in out:
+        if x not in dedup:
+            dedup.append(x)
+    return "\n".join(dedup)

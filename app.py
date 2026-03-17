@@ -83,6 +83,7 @@ from utils import (
     get_remarks_text,
     format_campaign_details,
     build_ragic_details_full,
+    build_platform_detail_text,
     expand_schedule_to_calendar
 )
 from data_loader import load_config_from_cloud
@@ -1614,6 +1615,7 @@ def main():
                             with st.spinner("正在上傳資料與檔案..."):
                                 row_groups_upload = get_row_groups(rows, REGIONS_ORDER)
                                 campaign_summary = build_ragic_details_full(config, _get_ragic_extra_state(row_groups_upload))
+                                platform_detail = build_platform_detail_text(rows, config)
                                 sales_nickname = SALES_MAP.get(sales_person, sales_person)
 
                                 data_payload = {
@@ -1630,6 +1632,7 @@ def main():
                                     RAGIC_MAP['bill_month']: billing_month,
                                     RAGIC_MAP['date_pay']:   str(payment_date),
                                     RAGIC_MAP['details']:    campaign_summary,
+                                    RAGIC_MAP['platform_detail']: platform_detail,
                                     RAGIC_MAP['tax_id']:     client_tax_id
                                 }
 
