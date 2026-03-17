@@ -259,9 +259,9 @@ def build_platform_detail_text(rows, config):
                 if reg in seen["新鮮視"] and reg in region_to_fv:
                     out.append(f"新鮮視{region_to_fv[reg]}")
 
-    # 去重並保序
+    # 去重並保序，上傳 Ragic 時以逗號隔開
     dedup = []
     for x in out:
         if x not in dedup:
             dedup.append(x)
-    return "\n".join(dedup)
+    return ",".join(dedup)
