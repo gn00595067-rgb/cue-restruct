@@ -483,10 +483,12 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
             except Exception:
                 pass
-            ws.row_dimensions[r_row].height = 50 if (eff_days < 14 and len(parts) > 1) else 25
+            # 列高避免把下方簽名區推到頁外（PDF 會裁切）；兩行備註用較溫和的列高
+            ws.row_dimensions[r_row].height = 34 if (eff_days < 14 and len(parts) > 1) else 25
             c = ws.cell(r_row, r_col_start)
             c.value = wrapped_text
-            c.font = Font(name=FONT_MAIN, size=18, color=color)
+            # 短天期備註縮小字級，減少撐高造成頁尾被裁切
+            c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
             c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
         sig_col_start = 1
