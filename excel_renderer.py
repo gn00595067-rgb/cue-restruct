@@ -472,14 +472,19 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
             # <14 天：避免文字超出底線，過長就拆成兩列
-            lines = _split_remark_lines(rm, max_chars=70 if r_col_start == 6 else 55) if eff_days < 14 else [rm]
+            lines = _split_remark_lines(rm, max_chars=58 if r_col_start == 6 else 48) if eff_days < 14 else [rm]
             for li, one in enumerate(lines):
                 r_row += 1
-                ws.row_dimensions[r_row].height = 25
+                # 合併儲存格讓文字在框內換行，不要「延伸到右邊」看起來像超出底線
+                try:
+                    ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
+                except Exception:
+                    pass
+                ws.row_dimensions[r_row].height = 34 if (eff_days < 14 and len(lines) > 1) else 25
                 c = ws.cell(r_row, r_col_start)
                 c.value = one
                 c.font = Font(name=FONT_MAIN, size=18, color=color)
-                c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+                c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
         sig_col_start = 1
         for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
