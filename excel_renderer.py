@@ -664,7 +664,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             curr_row += 1
         
         # Footer & 簽名區 (舊版樣式 + 統編對齊修正)
-        curr_row += 1; start_footer = curr_row; r_col_start = 6 
+        # Remarks 起始欄位：短天期時避免 Remarks 區塊向左「突出」太多，改為對齊「播出店數」欄（第 3 欄）
+        curr_row += 1; start_footer = curr_row; r_col_start = 3 if eff_days < 14 else 6
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
         r_row = start_footer
