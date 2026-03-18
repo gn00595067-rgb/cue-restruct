@@ -445,12 +445,41 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         curr_row += 1; start_footer = curr_row; r_col_start = 3 if eff_days < 14 else 6
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
+        def _split_remark_lines(text, max_chars):
+            """短天期用：把過長備註拆成多列（盡量在標點後斷行）。"""
+            t = (text or "").strip()
+            if len(t) <= max_chars:
+                return [t]
+            # 先找 max_chars 以前最後一個較適合斷行的標點
+            cut_points = ["。", "；", "，", ",", " "]
+            cut = -1
+            for cp in cut_points:
+                idx = t.rfind(cp, 0, max_chars + 1)
+                if idx > cut:
+                    cut = idx
+            if cut <= 0:
+                cut = max_chars
+            a = t[: cut + 1].rstrip()
+            b = t[cut + 1 :].lstrip()
+            # 若還是很長，只再切一次（你要的「拆成兩列」）
+            if len(b) > max_chars:
+                b = b[:max_chars].rstrip() + "…"
+            return [a, b] if b else [a]
+
         r_row = start_footer
         for rm in remarks_list:
-            r_row += 1; ws.row_dimensions[r_row].height = 25; is_red = rm.strip().startswith("1.") or rm.strip().startswith("4."); is_blue = rm.strip().startswith("6."); color = "000000"
-            if is_red: color = "FF0000"
-            if is_blue: color = "0000FF"
-            c = ws.cell(r_row, r_col_start); c.value = rm; c.font = Font(name=FONT_MAIN, size=18, color=color)
+            is_red = rm.strip().startswith("1.") or rm.strip().startswith("4.")
+            is_blue = rm.strip().startswith("6.")
+            color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
+            # <14 天：避免文字超出底線，過長就拆成兩列
+            lines = _split_remark_lines(rm, max_chars=70 if r_col_start == 6 else 55) if eff_days < 14 else [rm]
+            for li, one in enumerate(lines):
+                r_row += 1
+                ws.row_dimensions[r_row].height = 25
+                c = ws.cell(r_row, r_col_start)
+                c.value = one
+                c.font = Font(name=FONT_MAIN, size=18, color=color)
+                c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
         sig_col_start = 1
         for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
