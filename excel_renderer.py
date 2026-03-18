@@ -708,7 +708,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
         def _split_remark_lines(text, max_chars):
-            """短天期用：把過長備註拆成兩列（盡量在標點後斷行）。"""
+            """短天期用：把過長備註拆成兩列（盡量在標點後斷行；不截斷內容）。"""
             t = (text or "").strip()
             if len(t) <= max_chars:
                 return [t]
@@ -722,32 +722,28 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 cut = max_chars
             a = t[: cut + 1].rstrip()
             b = t[cut + 1 :].lstrip()
-            if len(b) > max_chars:
-                b = b[:max_chars].rstrip() + "…"
             return [a, b] if b else [a]
 
         r_row = start_footer
         for rm in remarks_list:
-            r_row += 1
             is_red = rm.strip().startswith("1.") or rm.strip().startswith("4.")
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
 
-            # <14 天：同一格內用 \n 強制斷行，避免 PDF 轉檔時仍視覺溢出
-            max_chars = 58 if r_col_start == 6 else 48
+            # <14 天：真的拆成兩個 row（PDF 轉檔最穩定）；其他天期維持單列
+            max_chars = 62 if r_col_start == 6 else 52
             parts = _split_remark_lines(rm, max_chars=max_chars) if eff_days < 14 else [rm]
-            wrapped_text = "\n".join([p for p in parts if p is not None])
-
-            # 合併儲存格讓文字在框內顯示
-            try:
-                ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
-            except Exception:
-                pass
-            ws.row_dimensions[r_row].height = 50 if (eff_days < 14 and len(parts) > 1) else 25
-            c = ws.cell(r_row, r_col_start)
-            c.value = wrapped_text
-            c.font = Font(name=FONT_MAIN, size=18, color=color)
-            c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+            for one in parts:
+                r_row += 1
+                try:
+                    ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
+                except Exception:
+                    pass
+                ws.row_dimensions[r_row].height = 22 if eff_days < 14 else 25
+                c = ws.cell(r_row, r_col_start)
+                c.value = one
+                c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
+                c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
         sig_col_start = 1
         for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
