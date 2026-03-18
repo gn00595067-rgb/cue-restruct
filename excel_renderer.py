@@ -277,7 +277,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.cell(sig_start+1, right_start_col, f"統一編號：{tax_id}").alignment = ALIGN_LEFT; ws.cell(sig_start+1, right_start_col).font = _sig_font
         
         ws.merge_cells(start_row=sig_start+2, start_column=right_start_col, end_row=sig_start+2, end_column=right_start_col+7); ws.cell(sig_start+2, right_start_col, "客戶簽章：").alignment = ALIGN_LEFT; ws.cell(sig_start+2, right_start_col).font = _sig_font
-        for c_idx in range(1, total_cols + 1): set_border(ws.cell(sig_start, c_idx), top=BS_THIN)
+        # 乙方區塊上方分隔線：需涵蓋到右側簽名區（right_start_col+7），否則短天期會看起來線條偏短
+        sig_end_col = max(total_cols, right_start_col + 7)
+        for c_idx in range(1, sig_end_col + 1): set_border(ws.cell(sig_start, c_idx), top=BS_MEDIUM)
         return curr_row + 3
 
     # ---------------------------------------------------------
