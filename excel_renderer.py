@@ -269,17 +269,22 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.merge_cells(start_row=sig_start+1, start_column=1, end_row=sig_start+1, end_column=7); ws.cell(sig_start+1, 1, "統一編號：20935458").alignment = ALIGN_LEFT; ws.cell(sig_start+1, 1).font = _sig_font
         ws.merge_cells(start_row=sig_start+2, start_column=1, end_row=sig_start+2, end_column=7); ws.cell(sig_start+2, 1, sales_person).alignment = ALIGN_LEFT; ws.cell(sig_start+2, 1).font = _sig_font
         
-        right_start_col = 20 # Column T
-        ws.merge_cells(start_row=sig_start, start_column=right_start_col, end_row=sig_start, end_column=right_start_col+7); ws.cell(sig_start, right_start_col, f"乙    方：{client_name}").alignment = ALIGN_LEFT; ws.cell(sig_start, right_start_col).font = _sig_font
+        # 乙方簽名區：短天期時 total_cols 較窄，固定從 Column T 開始會太靠外（且分隔線看起來變短）。
+        # 規則：<14 天時，乙方自動對齊「倒數第六欄」（即從 total_cols-5 開始，寬度 6 欄）。
+        # 其他天期維持原本 8 欄寬，但若 total_cols 不足也會自動往左收。
+        eff_days_for_sig = eff_days
+        right_block_width = 6 if eff_days_for_sig < 14 else 8
+        right_start_col = max(1, total_cols - right_block_width + 1)
+        right_end_col = right_start_col + right_block_width - 1
+        ws.merge_cells(start_row=sig_start, start_column=right_start_col, end_row=sig_start, end_column=right_end_col); ws.cell(sig_start, right_start_col, f"乙    方：{client_name}").alignment = ALIGN_LEFT; ws.cell(sig_start, right_start_col).font = _sig_font
         
         # 填入 Excel 統編 (東吳格式)
-        ws.merge_cells(start_row=sig_start+1, start_column=right_start_col, end_row=sig_start+1, end_column=right_start_col+7)
+        ws.merge_cells(start_row=sig_start+1, start_column=right_start_col, end_row=sig_start+1, end_column=right_end_col)
         ws.cell(sig_start+1, right_start_col, f"統一編號：{tax_id}").alignment = ALIGN_LEFT; ws.cell(sig_start+1, right_start_col).font = _sig_font
         
-        ws.merge_cells(start_row=sig_start+2, start_column=right_start_col, end_row=sig_start+2, end_column=right_start_col+7); ws.cell(sig_start+2, right_start_col, "客戶簽章：").alignment = ALIGN_LEFT; ws.cell(sig_start+2, right_start_col).font = _sig_font
-        # 乙方區塊上方分隔線：需涵蓋到右側簽名區（right_start_col+7），否則短天期會看起來線條偏短
-        sig_end_col = max(total_cols, right_start_col + 7)
-        for c_idx in range(1, sig_end_col + 1): set_border(ws.cell(sig_start, c_idx), top=BS_MEDIUM)
+        ws.merge_cells(start_row=sig_start+2, start_column=right_start_col, end_row=sig_start+2, end_column=right_end_col); ws.cell(sig_start+2, right_start_col, "客戶簽章：").alignment = ALIGN_LEFT; ws.cell(sig_start+2, right_start_col).font = _sig_font
+        # 乙方區塊上方分隔線：固定畫到 total_cols，與上方標題底線同長
+        for c_idx in range(1, total_cols + 1): set_border(ws.cell(sig_start, c_idx), top=BS_MEDIUM)
         return curr_row + 3
 
     # ---------------------------------------------------------
