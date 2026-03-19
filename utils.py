@@ -265,3 +265,27 @@ def build_platform_detail_text(rows, config):
         if x not in dedup:
             dedup.append(x)
     return ",".join(dedup)
+
+
+def build_platform_text(rows):
+    """
+    產出 Ragic「平台」欄位文字（逗號分隔）：
+    - 全家廣播相關 -> 全家企頻
+    - 家樂福 -> 家樂福企頻
+    - 新鮮視相關 -> 新鮮視
+    """
+    if not rows:
+        return ""
+    media_map = {
+        "全家廣播": "全家企頻",
+        "家樂福": "家樂福企頻",
+        "新鮮視": "新鮮視",
+    }
+    order = ["全家企頻", "家樂福企頻", "新鮮視"]
+    seen = set()
+    for r in rows:
+        media = r.get("media")
+        label = media_map.get(media)
+        if label:
+            seen.add(label)
+    return ",".join([x for x in order if x in seen])

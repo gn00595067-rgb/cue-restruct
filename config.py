@@ -46,6 +46,7 @@ RAGIC_MAP = {
     'date_pay':   '1015317',
     'details':    '1015319',
     'platform_detail': '1015892',
+    'platform': '1015934',
     'total_spots': '1015931',
     'seconds_union': '1015930',
     'file_xls':   '1015320',

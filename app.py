@@ -84,6 +84,7 @@ from utils import (
     format_campaign_details,
     build_ragic_details_full,
     build_platform_detail_text,
+    build_platform_text,
     expand_schedule_to_calendar
 )
 from data_loader import load_config_from_cloud
@@ -1652,6 +1653,7 @@ def main():
                                 row_groups_upload = get_row_groups(rows, REGIONS_ORDER)
                                 campaign_summary = build_ragic_details_full(config, _get_ragic_extra_state(row_groups_upload))
                                 platform_detail = build_platform_detail_text(rows, config)
+                                platform_text = build_platform_text(rows)
                                 # Ragic 追加欄位：總檔數（含一般+回饋+加贈）與秒數聯集
                                 total_spots_all = int(sum(
                                     (d if isinstance(d, (int, float)) else 0)
@@ -1680,6 +1682,8 @@ def main():
                                 }
                                 if RAGIC_MAP.get('platform_detail'):
                                     data_payload[RAGIC_MAP['platform_detail']] = platform_detail
+                                if RAGIC_MAP.get('platform'):
+                                    data_payload[RAGIC_MAP['platform']] = platform_text
                                 if RAGIC_MAP.get('total_spots'):
                                     data_payload[RAGIC_MAP['total_spots']] = total_spots_all
                                 if RAGIC_MAP.get('seconds_union'):
