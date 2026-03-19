@@ -601,6 +601,9 @@ def main():
         with st.sidebar:
             with st.expander("ℹ️ 版本", expanded=False):
                 st.caption(f"Streamlit {st.__version__}")
+            # 先同步 UI 顯示值與實際生效值，避免 disabled checkbox 顯示與權限不一致
+            st.session_state["allow_sales_excel_download_ui"] = bool(st.session_state.get("allow_sales_excel_download", True))
+            st.session_state["allow_sales_pdf_download_ui"] = bool(st.session_state.get("allow_sales_pdf_download", True))
             st.header("🕵️ 主管登入")
             if not st.session_state.is_supervisor:
                 pwd = st.text_input("輸入密碼", type="password", key="pwd_input")
