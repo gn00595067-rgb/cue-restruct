@@ -564,7 +564,10 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
         pdf_bytes, _, _ = xlsx_bytes_to_pdf_bytes(xlsx_bytes)
         col_x, col_p = st.columns(2)
         with col_x:
-            st.download_button(f"📥 波段{i+1} Excel", xlsx_bytes, f"Cue_{safe_filename(client_name)}_波段{i+1}_{start_d}_{end_d}.xlsx", key=f"aq_xlsx_{i}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            if st.session_state.get("is_supervisor", False):
+                st.download_button(f"📥 波段{i+1} Excel", xlsx_bytes, f"Cue_{safe_filename(client_name)}_波段{i+1}_{start_d}_{end_d}.xlsx", key=f"aq_xlsx_{i}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            else:
+                st.caption("Excel 下載僅限主管")
         with col_p:
             if pdf_bytes:
                 st.download_button(f"📥 波段{i+1} PDF", pdf_bytes, f"Cue_{safe_filename(client_name)}_波段{i+1}_{start_d}_{end_d}.pdf", key=f"aq_pdf_{i}", mime="application/pdf")
@@ -1552,7 +1555,10 @@ def main():
                         pdf_seg, _, _ = xlsx_bytes_to_pdf_bytes(xlsx_seg)
                         c1, c2 = st.columns(2)
                         with c1:
-                            st.download_button(f"📥 波段{i+1} Excel", xlsx_seg, f"Cue_{safe_filename(client_name)}_波段{i+1}_{seg_start}_{seg_end}.xlsx", key=f"cue_seg_xlsx_{i}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                            if st.session_state.get("is_supervisor", False):
+                                st.download_button(f"📥 波段{i+1} Excel", xlsx_seg, f"Cue_{safe_filename(client_name)}_波段{i+1}_{seg_start}_{seg_end}.xlsx", key=f"cue_seg_xlsx_{i}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                            else:
+                                st.caption("Excel 下載僅限主管")
                         with c2:
                             if pdf_seg:
                                 st.download_button(f"📥 波段{i+1} PDF", pdf_seg, f"Cue_{safe_filename(client_name)}_波段{i+1}_{seg_start}_{seg_end}.pdf", key=f"cue_seg_pdf_{i}", mime="application/pdf")
@@ -1582,7 +1588,10 @@ def main():
                     else:
                         st.warning(f"PDF 生成失敗: {err}")
                 with col_dl1:
-                    st.download_button("📥 下載 Excel", xlsx_temp, f"Cue_{safe_filename(client_name)}.xlsx", key="xlsx_dl_btn", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    if st.session_state.get("is_supervisor", False):
+                        st.download_button("📥 下載 Excel", xlsx_temp, f"Cue_{safe_filename(client_name)}.xlsx", key="xlsx_dl_btn", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                    else:
+                        st.caption("Excel 下載僅限主管")
                 _ragic_col = col_ragic
                 _xlsx_ragic, _pdf_ragic = xlsx_temp, pdf_bytes
 
