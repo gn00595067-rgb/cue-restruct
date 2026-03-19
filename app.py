@@ -1625,6 +1625,14 @@ def main():
                                 row_groups_upload = get_row_groups(rows, REGIONS_ORDER)
                                 campaign_summary = build_ragic_details_full(config, _get_ragic_extra_state(row_groups_upload))
                                 platform_detail = build_platform_detail_text(rows, config)
+                                # Ragic 追加欄位：總檔數（含一般+回饋+加贈）與秒數聯集
+                                total_spots_all = int(sum(
+                                    (d if isinstance(d, (int, float)) else 0)
+                                    for r in rows for d in (r.get("schedule") or [])
+                                ))
+                                seconds_union_text = ",".join([
+                                    str(s) for s in sorted({int(r.get("seconds")) for r in rows if r.get("seconds") is not None})
+                                ])
                                 sales_nickname = SALES_MAP.get(sales_person, sales_person)
 
                                 data_payload = {
@@ -1645,6 +1653,10 @@ def main():
                                 }
                                 if RAGIC_MAP.get('platform_detail'):
                                     data_payload[RAGIC_MAP['platform_detail']] = platform_detail
+                                if RAGIC_MAP.get('total_spots'):
+                                    data_payload[RAGIC_MAP['total_spots']] = total_spots_all
+                                if RAGIC_MAP.get('seconds_union'):
+                                    data_payload[RAGIC_MAP['seconds_union']] = seconds_union_text
 
                                 files_payload = {}
                                 files_payload[RAGIC_MAP['file_xls']] = (
