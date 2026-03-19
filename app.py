@@ -618,13 +618,16 @@ def main():
                 st.markdown("#### 🔐 下載權限設定")
                 st.checkbox(
                     "允許一般業務下載 Excel",
-                    value=st.session_state.get("allow_sales_excel_download", True),
                     key="allow_sales_excel_download",
                 )
                 st.checkbox(
                     "允許一般業務下載 PDF",
-                    value=st.session_state.get("allow_sales_pdf_download", True),
                     key="allow_sales_pdf_download",
+                )
+            else:
+                st.caption(
+                    f"一般業務下載權限：Excel={'開啟' if st.session_state.get('allow_sales_excel_download', True) else '關閉'} / "
+                    f"PDF={'開啟' if st.session_state.get('allow_sales_pdf_download', True) else '關閉'}"
                 )
             # 覆寫欄位：預設空白，輸入數字後才啟用覆寫
             st.caption("🔒 專案優惠價覆寫")
