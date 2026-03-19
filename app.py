@@ -113,6 +113,8 @@ st.set_page_config(
 # =============================================================================
 DEFAULT_STATES = {
     "is_supervisor": False,      # 主管權限開關（開啟後可修改專案優惠價／覆寫成交價）
+    "allow_sales_excel_download": True,  # 主管可控制一般業務是否可下載 Excel
+    "allow_sales_pdf_download": True,    # 主管可控制一般業務是否可下載 PDF
     "rad_share": 100,            # 廣播預算佔比
     "fv_share": 0,               # 新鮮視預算佔比
     "cf_share": 0,               # 家樂福預算佔比
@@ -213,6 +215,8 @@ def _get_ragic_extra_state(row_groups):
 def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, regions_order, fmt_options, fmt_idx, sales_map):
     """年約／季約細 CUE：以已知檔次與實收分配至各波段，每波段獨立 Excel/PDF。每個廣告組合可個別設定每波檔次與實收；若不知道各波分配則填該組合總檔次／總實收後按「依天數均分」。"""
     st.caption("以已知**執行區域、平台、秒數**設定各波段檔次與實收；若不知各波分配，可填該**廣告組合**的總檔次／總實收後按「依波段天數均分」。")
+    can_download_excel = st.session_state.get("is_supervisor", False) or st.session_state.get("allow_sales_excel_download", True)
+    can_download_pdf = st.session_state.get("is_supervisor", False) or st.session_state.get("allow_sales_pdf_download", True)
     if "aq_combos" not in st.session_state:
         st.session_state.aq_combos = []
     if "aq_waves" not in st.session_state:
@@ -564,13 +568,15 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
         pdf_bytes, _, _ = xlsx_bytes_to_pdf_bytes(xlsx_bytes)
         col_x, col_p = st.columns(2)
         with col_x:
-            if st.session_state.get("is_supervisor", False):
+            if can_download_excel:
                 st.download_button(f"📥 波段{i+1} Excel", xlsx_bytes, f"Cue_{safe_filename(client_name)}_波段{i+1}_{start_d}_{end_d}.xlsx", key=f"aq_xlsx_{i}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             else:
-                st.caption("Excel 下載僅限主管")
+                st.caption("Excel 下載已由主管關閉")
         with col_p:
-            if pdf_bytes:
+            if pdf_bytes and can_download_pdf:
                 st.download_button(f"📥 波段{i+1} PDF", pdf_bytes, f"Cue_{safe_filename(client_name)}_波段{i+1}_{start_d}_{end_d}.pdf", key=f"aq_pdf_{i}", mime="application/pdf")
+            elif not can_download_pdf:
+                st.caption("PDF 下載已由主管關閉")
             else:
                 st.caption("PDF 需 LibreOffice")
 
@@ -608,6 +614,18 @@ def main():
                 if st.button("登出"):
                     st.session_state.is_supervisor = False
                     st.rerun()
+            if st.session_state.is_supervisor:
+                st.markdown("#### 🔐 下載權限設定")
+                st.checkbox(
+                    "允許一般業務下載 Excel",
+                    value=st.session_state.get("allow_sales_excel_download", True),
+                    key="allow_sales_excel_download",
+                )
+                st.checkbox(
+                    "允許一般業務下載 PDF",
+                    value=st.session_state.get("allow_sales_pdf_download", True),
+                    key="allow_sales_pdf_download",
+                )
             # 覆寫欄位：預設空白，輸入數字後才啟用覆寫
             st.caption("🔒 專案優惠價覆寫")
             _ov_raw = st.text_input("最終成交價", value=st.session_state.get("supervisor_override_price", ""), key="supervisor_override_price", label_visibility="collapsed", placeholder="留空則以總預算計", disabled=not st.session_state.is_supervisor)
@@ -1530,6 +1548,8 @@ def main():
 
             # 顯示運算邏輯（含回饋檔次計算、主管額外回饋計算）
             render_logic_panel(logs, use_list_price_for_spots=is_barter_contract, rebate_logs=rebate_logs if not is_barter_contract else [], bonus_rebate_logs=bonus_rebate_logs)
+            can_download_excel = st.session_state.get("is_supervisor", False) or st.session_state.get("allow_sales_excel_download", True)
+            can_download_pdf = st.session_state.get("is_supervisor", False) or st.session_state.get("allow_sales_pdf_download", True)
             
             st.markdown("---")
             st.subheader("📥 檔案下載區")
@@ -1555,13 +1575,15 @@ def main():
                         pdf_seg, _, _ = xlsx_bytes_to_pdf_bytes(xlsx_seg)
                         c1, c2 = st.columns(2)
                         with c1:
-                            if st.session_state.get("is_supervisor", False):
+                            if can_download_excel:
                                 st.download_button(f"📥 波段{i+1} Excel", xlsx_seg, f"Cue_{safe_filename(client_name)}_波段{i+1}_{seg_start}_{seg_end}.xlsx", key=f"cue_seg_xlsx_{i}", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                             else:
-                                st.caption("Excel 下載僅限主管")
+                                st.caption("Excel 下載已由主管關閉")
                         with c2:
-                            if pdf_seg:
+                            if pdf_seg and can_download_pdf:
                                 st.download_button(f"📥 波段{i+1} PDF", pdf_seg, f"Cue_{safe_filename(client_name)}_波段{i+1}_{seg_start}_{seg_end}.pdf", key=f"cue_seg_pdf_{i}", mime="application/pdf")
+                            elif not can_download_pdf:
+                                st.caption("PDF 下載已由主管關閉")
                             else:
                                 st.caption("PDF 需 LibreOffice")
                 _ragic_col = st.columns(3)[2]
@@ -1583,15 +1605,17 @@ def main():
                 col_dl1, col_dl2, col_ragic = st.columns([1, 1, 2])
                 with col_dl2:
                     pdf_bytes, method, err = xlsx_bytes_to_pdf_bytes(xlsx_temp)
-                    if pdf_bytes:
+                    if pdf_bytes and can_download_pdf:
                         st.download_button(f"📥 下載 PDF", pdf_bytes, f"Cue_{safe_filename(client_name)}.pdf", key="pdf_dl_btn", mime="application/pdf")
+                    elif not can_download_pdf:
+                        st.caption("PDF 下載已由主管關閉")
                     else:
                         st.warning(f"PDF 生成失敗: {err}")
                 with col_dl1:
-                    if st.session_state.get("is_supervisor", False):
+                    if can_download_excel:
                         st.download_button("📥 下載 Excel", xlsx_temp, f"Cue_{safe_filename(client_name)}.xlsx", key="xlsx_dl_btn", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                     else:
-                        st.caption("Excel 下載僅限主管")
+                        st.caption("Excel 下載已由主管關閉")
                 _ragic_col = col_ragic
                 _xlsx_ragic, _pdf_ragic = xlsx_temp, pdf_bytes
 
