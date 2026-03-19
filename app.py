@@ -626,9 +626,17 @@ def main():
                     key="allow_sales_pdf_download",
                 )
             else:
-                st.caption(
-                    f"一般業務下載權限：Excel={'開啟' if st.session_state.get('allow_sales_excel_download', True) else '關閉'} / "
-                    f"PDF={'開啟' if st.session_state.get('allow_sales_pdf_download', True) else '關閉'}"
+                # 非主管也渲染同一組 checkbox（唯讀），避免 widget state 在登出後被清掉而回到預設 True
+                st.markdown("#### 🔐 下載權限設定")
+                st.checkbox(
+                    "允許一般業務下載 Excel",
+                    key="allow_sales_excel_download",
+                    disabled=True,
+                )
+                st.checkbox(
+                    "允許一般業務下載 PDF",
+                    key="allow_sales_pdf_download",
+                    disabled=True,
                 )
             # 覆寫欄位：預設空白，輸入數字後才啟用覆寫
             st.caption("🔒 專案優惠價覆寫")
