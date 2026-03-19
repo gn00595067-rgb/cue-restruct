@@ -116,6 +116,8 @@ DEFAULT_STATES = {
     "is_supervisor": False,      # 主管權限開關（開啟後可修改專案優惠價／覆寫成交價）
     "allow_sales_excel_download": True,  # 主管可控制一般業務是否可下載 Excel
     "allow_sales_pdf_download": True,    # 主管可控制一般業務是否可下載 PDF
+    "allow_sales_excel_download_ui": True,  # 側欄 UI 狀態（避免 widget 狀態覆蓋實際設定）
+    "allow_sales_pdf_download_ui": True,    # 側欄 UI 狀態（避免 widget 狀態覆蓋實際設定）
     "rad_share": 100,            # 廣播預算佔比
     "fv_share": 0,               # 新鮮視預算佔比
     "cf_share": 0,               # 家樂福預算佔比
@@ -617,25 +619,32 @@ def main():
                     st.rerun()
             if st.session_state.is_supervisor:
                 st.markdown("#### 🔐 下載權限設定")
-                st.checkbox(
+                excel_allowed = st.checkbox(
                     "允許一般業務下載 Excel",
-                    key="allow_sales_excel_download",
+                    value=st.session_state.get("allow_sales_excel_download", True),
+                    key="allow_sales_excel_download_ui",
                 )
-                st.checkbox(
+                pdf_allowed = st.checkbox(
                     "允許一般業務下載 PDF",
-                    key="allow_sales_pdf_download",
+                    value=st.session_state.get("allow_sales_pdf_download", True),
+                    key="allow_sales_pdf_download_ui",
                 )
+                # 真正生效的設定值
+                st.session_state["allow_sales_excel_download"] = bool(excel_allowed)
+                st.session_state["allow_sales_pdf_download"] = bool(pdf_allowed)
             else:
                 # 非主管也渲染同一組 checkbox（唯讀），避免 widget state 在登出後被清掉而回到預設 True
                 st.markdown("#### 🔐 下載權限設定")
                 st.checkbox(
                     "允許一般業務下載 Excel",
-                    key="allow_sales_excel_download",
+                    value=st.session_state.get("allow_sales_excel_download", True),
+                    key="allow_sales_excel_download_ui",
                     disabled=True,
                 )
                 st.checkbox(
                     "允許一般業務下載 PDF",
-                    key="allow_sales_pdf_download",
+                    value=st.session_state.get("allow_sales_pdf_download", True),
+                    key="allow_sales_pdf_download_ui",
                     disabled=True,
                 )
             # 覆寫欄位：預設空白，輸入數字後才啟用覆寫
