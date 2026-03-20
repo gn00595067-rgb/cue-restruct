@@ -7,6 +7,7 @@ Cue Sheet Pro (媒體排程生成系統)
 """
 
 import calendar
+import mimetypes
 import streamlit as st
 import traceback
 import time
@@ -1724,11 +1725,13 @@ def main():
                                         'application/pdf'
                                     )
                                 if style_excel_file and RAGIC_MAP.get('file_style_xls'):
-                                    _name = style_excel_file.name or f"Style_{safe_filename(client_name)}.xlsx"
+                                    _name_raw = style_excel_file.name or f"Style_{safe_filename(client_name)}.xlsx"
+                                    _name = safe_filename(_name_raw)
+                                    _mime = mimetypes.guess_type(_name)[0] or "application/octet-stream"
                                     files_payload[RAGIC_MAP['file_style_xls']] = (
                                         _name,
                                         style_excel_file.getvalue(),
-                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                        _mime,
                                     )
 
                                 success, msg, rid = upload_to_ragic(
