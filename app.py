@@ -1640,6 +1640,13 @@ def main():
 
             with _ragic_col:
                 st.markdown("#### ☁️ 上傳至 Ragic")
+                style_excel_file = st.file_uploader(
+                    "自調外觀excel上傳",
+                    type=["xlsx", "xlsm", "xls"],
+                    key="ragic_style_excel_upload",
+                    help="僅能調整外觀及呈列方式，請勿調整每日檔次及金額等重要資訊(訂檔資訊將以程式設定為主)。",
+                )
+                st.caption("僅能調整外觀及呈列方式，請勿調整每日檔次及金額等重要資訊(訂檔資訊將以程式設定為主)。")
                 
                 # === [新增功能] 顯示上傳成功的歷史訊息 (不會一閃即逝) ===
                 if 'upload_success_msg' in st.session_state:
@@ -1715,6 +1722,13 @@ def main():
                                         f"Cue_{safe_filename(client_name)}.pdf", 
                                         _pdf_ragic, 
                                         'application/pdf'
+                                    )
+                                if style_excel_file and RAGIC_MAP.get('file_style_xls'):
+                                    _name = style_excel_file.name or f"Style_{safe_filename(client_name)}.xlsx"
+                                    files_payload[RAGIC_MAP['file_style_xls']] = (
+                                        _name,
+                                        style_excel_file.getvalue(),
+                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                     )
 
                                 success, msg, rid = upload_to_ragic(
