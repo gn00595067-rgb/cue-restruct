@@ -1682,7 +1682,7 @@ def main():
                                     (d if isinstance(d, (int, float)) else 0)
                                     for r in rows for d in (r.get("schedule") or [])
                                 ))
-                                seconds_union_text = ",".join([
+                                seconds_union_text = "、".join([
                                     str(s) for s in sorted({int(r.get("seconds")) for r in rows if r.get("seconds") is not None})
                                 ])
                                 sales_nickname = SALES_MAP.get(sales_person, sales_person)
