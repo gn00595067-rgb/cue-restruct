@@ -1501,24 +1501,28 @@ def main():
             # 業務加贈檔次：每個「同平台、同秒數、同區域」可選加贈、每日檔次、加贈日期區間
             row_groups = get_row_groups(rows, REGIONS_ORDER)
             custom_bonus_config = {}
-            with st.expander("📌 業務加贈檔次", expanded=False):
-                st.caption("在相同平台、相同秒數、相同區域的廣告下方可加一列「加贈檔次」，設定每日加贈幾檔及加贈日期區間（須在走期內）。")
-                for g in row_groups:
-                    media, sec, region_key = g["key"]
-                    skey = f"cb_{media}_{sec}_{region_key}".replace(" ", "_")
-                    label = f"【{media}】 {sec}秒 - {region_key}"
-                    st.markdown(f"**{label}**")
-                    c1, c2, c3, c4 = st.columns([1, 2, 2, 2])
-                    with c1:
-                        enabled = st.checkbox("加贈", value=st.session_state.get(f"cb_en_{skey}", False), key=f"cb_en_{skey}", label_visibility="collapsed")
-                    with c2:
-                        spots_per_day = st.number_input("每日加贈檔次", min_value=0, max_value=999, value=st.session_state.get(f"cb_spots_{skey}", 0) or 0, step=1, key=f"cb_spots_{skey}")
-                    with c3:
-                        b_start = st.date_input("加贈開始日", value=start_date, min_value=start_date, max_value=end_date, key=f"cb_start_{skey}")
-                    with c4:
-                        b_end = st.date_input("加贈結束日", value=end_date, min_value=start_date, max_value=end_date, key=f"cb_end_{skey}")
-                    if enabled and spots_per_day and b_start and b_end:
-                        custom_bonus_config[g["key"]] = {"enabled": True, "spots_per_day": spots_per_day, "date_start": b_start, "date_end": b_end}
+            if st.session_state.get("is_supervisor", False):
+                with st.expander("📌 業務加贈檔次", expanded=False):
+                    st.caption("在相同平台、相同秒數、相同區域的廣告下方可加一列「加贈檔次」，設定每日加贈幾檔及加贈日期區間（須在走期內）。")
+                    for g in row_groups:
+                        media, sec, region_key = g["key"]
+                        skey = f"cb_{media}_{sec}_{region_key}".replace(" ", "_")
+                        label = f"【{media}】 {sec}秒 - {region_key}"
+                        st.markdown(f"**{label}**")
+                        c1, c2, c3, c4 = st.columns([1, 2, 2, 2])
+                        with c1:
+                            enabled = st.checkbox("加贈", value=st.session_state.get(f"cb_en_{skey}", False), key=f"cb_en_{skey}", label_visibility="collapsed")
+                        with c2:
+                            spots_per_day = st.number_input("每日加贈檔次", min_value=0, max_value=999, value=st.session_state.get(f"cb_spots_{skey}", 0) or 0, step=1, key=f"cb_spots_{skey}")
+                        with c3:
+                            b_start = st.date_input("加贈開始日", value=start_date, min_value=start_date, max_value=end_date, key=f"cb_start_{skey}")
+                        with c4:
+                            b_end = st.date_input("加贈結束日", value=end_date, min_value=start_date, max_value=end_date, key=f"cb_end_{skey}")
+                        if enabled and spots_per_day and b_start and b_end:
+                            custom_bonus_config[g["key"]] = {"enabled": True, "spots_per_day": spots_per_day, "date_start": b_start, "date_end": b_end}
+            else:
+                with st.expander("📌 業務加贈檔次", expanded=False):
+                    st.caption("僅主管可設定業務加贈檔次。")
 
             # 合併回饋與加贈：兩者皆依「原始 rows」的 index；同一 index 先插門檻回饋再插業務加贈、主管加贈
             all_inserts = []
