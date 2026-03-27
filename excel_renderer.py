@@ -273,8 +273,6 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             curr_row += 1
             is_red = rm.strip().startswith("1.") or rm.strip().startswith("4.")
             c = ws.cell(curr_row, 1); c.value = rm; c.font = Font(name=FONT_MAIN, size=18, color="FF0000" if is_red else "000000")
-            c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
-            ws.row_dimensions[curr_row].height = calc_remark_row_height(rm, font_size=18, min_height=25, chars_per_line=78)
 
         curr_row += 2; sig_start = curr_row
         for _r in (sig_start, sig_start+1, sig_start+2): ws.row_dimensions[_r].height = 28
@@ -729,29 +727,25 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
         def _split_remark_lines(text, max_chars):
-            """把過長備註拆成多列（盡量在標點後斷行，不遺漏內容）。"""
+            """短天期用：把過長備註拆成多列（盡量在標點後斷行）。"""
             t = (text or "").strip()
-            if not t:
-                return [""]
-            out = []
+            if len(t) <= max_chars:
+                return [t]
+            # 先找 max_chars 以前最後一個較適合斷行的標點
             cut_points = ["。", "；", "，", ",", " "]
-            remain = t
-            while len(remain) > max_chars:
-                cut = -1
-                for cp in cut_points:
-                    idx = remain.rfind(cp, 0, max_chars + 1)
-                    if idx > cut:
-                        cut = idx
-                if cut <= 0:
-                    cut = max_chars
-                    out.append(remain[:cut].rstrip())
-                    remain = remain[cut:].lstrip()
-                else:
-                    out.append(remain[: cut + 1].rstrip())
-                    remain = remain[cut + 1 :].lstrip()
-            if remain:
-                out.append(remain)
-            return out
+            cut = -1
+            for cp in cut_points:
+                idx = t.rfind(cp, 0, max_chars + 1)
+                if idx > cut:
+                    cut = idx
+            if cut <= 0:
+                cut = max_chars
+            a = t[: cut + 1].rstrip()
+            b = t[cut + 1 :].lstrip()
+            # 若還是很長，只再切一次
+            if len(b) > max_chars:
+                b = b[:max_chars].rstrip() + "…"
+            return [a, b] if b else [a]
 
         r_row = start_footer
         for rm in remarks_list:
@@ -759,27 +753,26 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
 
-            # PDF 轉檔下，合併儲存格自動換行常不穩定；一律先切成多列避免文字消失
-            max_chars = 60 if r_col_start == 6 else 50
-            parts = _split_remark_lines(rm, max_chars=max_chars)
-            for one in parts:
-                r_row += 1
-                try:
-                    ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
-                except Exception:
-                    pass
-                part_min_h = (22 if len(parts) > 1 else (24 if eff_days < 14 else 25))
-                part_v_align = 'top' if len(parts) > 1 else 'center'
-                ws.row_dimensions[r_row].height = calc_remark_row_height(
-                    one,
-                    font_size=(16 if eff_days < 14 else 18),
-                    min_height=part_min_h,
-                    chars_per_line=(48 if eff_days < 14 else 60),
-                )
-                c = ws.cell(r_row, r_col_start)
-                c.value = one
-                c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
-                c.alignment = Alignment(horizontal='left', vertical=part_v_align, wrap_text=True)
+            # 比照聲活：同一格內換行，搭配自動列高
+            max_chars = 58 if r_col_start == 6 else 48
+            parts = _split_remark_lines(rm, max_chars=max_chars) if eff_days < 14 else [rm]
+            wrapped_text = "\n".join([p for p in parts if p is not None])
+
+            try:
+                ws.merge_cells(start_row=r_row + 1, start_column=r_col_start, end_row=r_row + 1, end_column=total_cols)
+            except Exception:
+                pass
+            r_row += 1
+            ws.row_dimensions[r_row].height = calc_remark_row_height(
+                wrapped_text,
+                font_size=(16 if eff_days < 14 else 18),
+                min_height=25,
+                chars_per_line=(52 if eff_days < 14 else 62),
+            )
+            c = ws.cell(r_row, r_col_start)
+            c.value = wrapped_text
+            c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
+            c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
         sig_col_start = 1
         for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
