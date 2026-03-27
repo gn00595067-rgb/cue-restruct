@@ -728,11 +728,22 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         curr_row += 1; start_footer = curr_row; r_col_start = 5 if eff_days <= 14 else 6
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
-        def _split_remark_lines_all(text, max_chars):
-            """把過長備註拆成多列（不截字、不中斷內容）。"""
+        def _remark_chars_per_line(start_col, end_col):
+            """依 remarks 合併區實際欄寬估算每列可容納字數。"""
+            width_sum = 0.0
+            for cidx in range(start_col, end_col + 1):
+                letter = get_column_letter(cidx)
+                w = ws.column_dimensions[letter].width
+                width_sum += float(w if w is not None else 8.43)
+            return max(34, int(width_sum * 0.50))
+
+        def _split_remark_lines_if_needed(text, max_chars):
+            """可延伸就單行，真的超過才換行；換行優先在標點。"""
             t = (text or "").strip()
             if not t:
                 return [""]
+            if len(t) <= max_chars:
+                return [t]
             out = []
             cut_points = ["。", "；", "，", ",", " "]
             remain = t
@@ -759,8 +770,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
 
-            max_chars = 50 if eff_days <= 14 else 62
-            lines = _split_remark_lines_all(rm, max_chars=max_chars)
+            max_chars = _remark_chars_per_line(r_col_start, total_cols)
+            lines = _split_remark_lines_if_needed(rm, max_chars=max_chars)
             wrapped_text = "\n".join(lines)
 
             try:
@@ -768,16 +779,14 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             except Exception:
                 pass
             r_row += 1
-            ws.row_dimensions[r_row].height = calc_remark_row_height(
-                wrapped_text,
-                font_size=(16 if eff_days <= 14 else 18),
-                min_height=(24 if eff_days <= 14 else 26),
-                chars_per_line=max_chars,
-            )
+            line_count = max(1, len(lines))
+            base_h = 24 if eff_days <= 14 else 26
+            line_step = 18 if eff_days <= 14 else 20
+            ws.row_dimensions[r_row].height = base_h + (line_count - 1) * line_step
             c = ws.cell(r_row, r_col_start)
             c.value = wrapped_text
             c.font = Font(name=FONT_MAIN, size=(16 if eff_days <= 14 else 18), color=color)
-            c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+            c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
         sig_col_start = 1
         for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
