@@ -736,7 +736,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 letter = get_column_letter(cidx)
                 w = ws.column_dimensions[letter].width
                 width_sum += float(w if w is not None else 8.43)
-            return max(44, int(width_sum * 0.95))
+            # 保守估算：PDF 轉檔常比 Excel 預覽更容易提早換行
+            return max(36, int(width_sum * 0.78))
 
         def _char_visual_width(ch):
             if ch == "\t":
@@ -755,6 +756,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             t = "\n".join([seg.strip() for seg in t.split("\n") if seg.strip()])
             if not t:
                 return [""]
+            effective_units = max(24.0, float(max_units) * 0.88)
             result = []
             punct = set("。；，,、 ")
             for raw_seg in t.split("\n"):
@@ -769,7 +771,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 while i < len(seg):
                     ch = seg[i]
                     w = _char_visual_width(ch)
-                    if used + w <= max_units or not line:
+                    if used + w <= effective_units or not line:
                         line += ch
                         used += w
                         if ch in punct:
@@ -812,7 +814,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             # 列高保險：同時參考「實際拆行數」與「估算自動換行行數」，取較大值避免文字擠疊
             line_count = max(1, len(lines))
             base_h = 24 if eff_days <= 14 else 26
-            line_step = 18 if eff_days <= 14 else 20
+            line_step = 16 if eff_days <= 14 else 18
             min_h = base_h
             max_h = 84 if eff_days <= 14 else 96
             row_h = base_h + (line_count - 1) * line_step
@@ -820,7 +822,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c = ws.cell(r_row, r_col_start)
             c.value = wrapped_text
             c.font = Font(name=FONT_MAIN, size=(16 if eff_days <= 14 else 18), color=color)
-            c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+            c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
         sig_col_start = 1
         
