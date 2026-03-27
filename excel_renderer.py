@@ -6,6 +6,7 @@ Excel 報表生成引擎 (Excel Renderer)
 import streamlit as st
 import io
 from datetime import timedelta
+import math
 import openpyxl
 from openpyxl.utils import get_column_letter, column_index_from_string
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
@@ -67,6 +68,16 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         for r in range(min_r, max_r + 1):
             set_border(ws.cell(r, min_c), left=BS_MEDIUM)
             set_border(ws.cell(r, max_c), right=BS_MEDIUM)
+
+    def calc_remark_row_height(text, font_size=18, min_height=25, chars_per_line=52):
+        """依備註字數粗估列高，避免長句被截字（含手動換行）。"""
+        t = str(text or "")
+        segs = t.split("\n") if "\n" in t else [t]
+        visual_lines = 0
+        for seg in segs:
+            visual_lines += max(1, math.ceil(len(seg) / max(1, chars_per_line)))
+        est = int(visual_lines * (font_size + 8))
+        return max(min_height, est)
 
     # ---------------------------------------------------------
     # Sub-Engine: Dongwu (東吳格式)
@@ -261,6 +272,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             curr_row += 1
             is_red = rm.strip().startswith("1.") or rm.strip().startswith("4.")
             c = ws.cell(curr_row, 1); c.value = rm; c.font = Font(name=FONT_MAIN, size=18, color="FF0000" if is_red else "000000")
+            c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+            ws.row_dimensions[curr_row].height = calc_remark_row_height(rm, font_size=18, min_height=25, chars_per_line=78)
 
         curr_row += 2; sig_start = curr_row
         for _r in (sig_start, sig_start+1, sig_start+2): ws.row_dimensions[_r].height = 28
@@ -483,8 +496,13 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
             except Exception:
                 pass
-            # 列高避免把下方簽名區推到頁外（PDF 會裁切）；兩行備註用較溫和的列高
-            ws.row_dimensions[r_row].height = 34 if (eff_days < 14 and len(parts) > 1) else 25
+            # 依內容估算列高，避免長句被截字
+            ws.row_dimensions[r_row].height = calc_remark_row_height(
+                wrapped_text,
+                font_size=(16 if eff_days < 14 else 18),
+                min_height=25,
+                chars_per_line=(52 if eff_days < 14 else 62),
+            )
             c = ws.cell(r_row, r_col_start)
             c.value = wrapped_text
             # 短天期備註縮小字級，減少撐高造成頁尾被裁切
@@ -568,7 +586,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         
         ws.merge_cells(f"{get_column_letter(end_c_start+1)}4:{get_column_letter(total_cols)}4")
         c4_r = ws[f"{get_column_letter(end_c_start+1)}4"]; c4_r.value = period_str
-        c4_r.font = Font(name=FONT_MAIN, size=20, bold=True); c4_r.alignment = ALIGN_LEFT
+        c4_r.font = Font(name=FONT_MAIN, size=20, bold=True)
+        # 執行期間：靠右且強制單行顯示（不換行）
+        c4_r.alignment = Alignment(horizontal='right', vertical='center', wrap_text=False, shrink_to_fit=True)
         draw_outer_border_fast(ws, 4, 4, 1, total_cols)
 
         # 產品名稱與月份 (舊版樣式)
@@ -739,7 +759,12 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                     ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
                 except Exception:
                     pass
-                ws.row_dimensions[r_row].height = 22 if eff_days < 14 else 25
+                ws.row_dimensions[r_row].height = calc_remark_row_height(
+                    one,
+                    font_size=(16 if eff_days < 14 else 18),
+                    min_height=(22 if eff_days < 14 else 25),
+                    chars_per_line=(48 if eff_days < 14 else 60),
+                )
                 c = ws.cell(r_row, r_col_start)
                 c.value = one
                 c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
