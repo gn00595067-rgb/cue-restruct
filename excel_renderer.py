@@ -780,10 +780,16 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             except Exception:
                 pass
             r_row += 1
-            line_count = max(1, len(lines))
+            # 列高保險：同時參考「實際拆行數」與「估算自動換行行數」，取較大值避免文字擠疊
+            normalized_len = len("".join(lines))
+            estimated_auto_lines = max(1, math.ceil(normalized_len / max_chars))
+            line_count = max(1, len(lines), estimated_auto_lines)
             base_h = 24 if eff_days <= 14 else 26
-            line_step = 18 if eff_days <= 14 else 20
-            ws.row_dimensions[r_row].height = base_h + (line_count - 1) * line_step
+            line_step = 20 if eff_days <= 14 else 22
+            min_h = base_h
+            max_h = 72 if eff_days <= 14 else 86
+            row_h = base_h + (line_count - 1) * line_step
+            ws.row_dimensions[r_row].height = max(min_h, min(max_h, row_h))
             c = ws.cell(r_row, r_col_start)
             c.value = wrapped_text
             c.font = Font(name=FONT_MAIN, size=(16 if eff_days <= 14 else 18), color=color)
