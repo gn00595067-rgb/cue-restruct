@@ -76,7 +76,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         visual_lines = 0
         for seg in segs:
             visual_lines += max(1, math.ceil(len(seg) / max(1, chars_per_line)))
-        est = int(visual_lines * (font_size + 8))
+        # CJK 在 LibreOffice 匯出 PDF 時列高常偏小，額外保留 padding 避免截字
+        est = int(visual_lines * (font_size + 12) + 4)
         return max(min_height, est)
 
     # ---------------------------------------------------------
@@ -762,13 +763,13 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 ws.row_dimensions[r_row].height = calc_remark_row_height(
                     one,
                     font_size=(16 if eff_days < 14 else 18),
-                    min_height=(22 if eff_days < 14 else 25),
+                    min_height=(30 if eff_days < 14 else 28),
                     chars_per_line=(48 if eff_days < 14 else 60),
                 )
                 c = ws.cell(r_row, r_col_start)
                 c.value = one
                 c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
-                c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+                c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
         sig_col_start = 1
         for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
