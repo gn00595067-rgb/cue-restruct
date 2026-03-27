@@ -722,8 +722,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             curr_row += 1
         
         # Footer & 簽名區 (舊版樣式 + 統編對齊修正)
-        # Remarks 起始欄位：短天期時對齊「秒數規格」欄（第 5 欄）
-        curr_row += 1; start_footer = curr_row; r_col_start = 5 if eff_days < 14 else 6
+        # Remarks 起始欄位：短天期（含 14 天）對齊「秒數規格」欄（第 5 欄）
+        curr_row += 1; start_footer = curr_row; r_col_start = 5 if eff_days <= 14 else 6
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
         def _split_remark_lines(text, max_chars):
@@ -755,7 +755,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
 
             # 比照聲活：同一格內換行，搭配自動列高
             max_chars = 58 if r_col_start == 6 else 48
-            parts = _split_remark_lines(rm, max_chars=max_chars) if eff_days < 14 else [rm]
+            parts = _split_remark_lines(rm, max_chars=max_chars) if eff_days <= 14 else [rm]
             wrapped_text = "\n".join([p for p in parts if p is not None])
 
             try:
@@ -765,13 +765,13 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             r_row += 1
             ws.row_dimensions[r_row].height = calc_remark_row_height(
                 wrapped_text,
-                font_size=(16 if eff_days < 14 else 18),
+                font_size=(16 if eff_days <= 14 else 18),
                 min_height=25,
-                chars_per_line=(52 if eff_days < 14 else 62),
+                chars_per_line=(52 if eff_days <= 14 else 62),
             )
             c = ws.cell(r_row, r_col_start)
             c.value = wrapped_text
-            c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
+            c.font = Font(name=FONT_MAIN, size=(16 if eff_days <= 14 else 18), color=color)
             c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
 
         sig_col_start = 1
