@@ -725,8 +725,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             curr_row += 1
         
         # Footer & 簽名區 (舊版樣式 + 統編對齊修正)
-        # Remarks 規則比照聲活：14 天以下對齊秒數規格欄
-        curr_row += 1; start_footer = curr_row; r_col_start = 5 if eff_days <= 14 else 6
+        # Remarks 欄位起點：<14 天對齊「秒數規格」欄；>=14 天對齊其右側欄
+        curr_row += 1; start_footer = curr_row; r_col_start = 5 if eff_days < 14 else 6
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
         def _remark_chars_per_line(start_col, end_col):
