@@ -542,7 +542,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             ws.column_dimensions[get_column_letter(6 + i)].width = 8.1
         ws.column_dimensions[get_column_letter(end_c_start)].width = 9.5
         ws.column_dimensions[get_column_letter(end_c_start+1)].width = 36.0
-        ws.column_dimensions[get_column_letter(end_c_start+2)].width = 20.0
+        # 專案價欄位略加寬，供 Logo 錨點與視覺留白
+        ws.column_dimensions[get_column_letter(end_c_start+2)].width = 24.0
         
         ROW_H_MAP = {1:70, 2:33.5, 3:33.5, 4:46, 5:40, 6:35, 7:35}
         for r, h in ROW_H_MAP.items(): ws.row_dimensions[r].height = h
@@ -557,7 +558,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 scale = 125 / img.height
                 img.height = 125
                 img.width = int(img.width * scale)
-                col_letter = get_column_letter(total_cols - 1)
+                # Logo 改錨在「專案價」欄
+                col_letter = get_column_letter(total_cols)
                 img.anchor = f"{col_letter}1"
                 ws.add_image(img)
             except Exception: pass
@@ -583,11 +585,10 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.merge_cells(f"{spec_merge_start}:{spec_merge_end}"); c4f = ws['F4']; c4f.value = f"廣告規格：{sec_str}"
         c4f.font = Font(name=FONT_MAIN, size=20, bold=True); c4f.alignment = ALIGN_LEFT
         
-        ws.merge_cells(f"{get_column_letter(end_c_start+1)}4:{get_column_letter(total_cols)}4")
+        # 執行期間放在「定價」欄，靠左單行展開
         c4_r = ws[f"{get_column_letter(end_c_start+1)}4"]; c4_r.value = period_str
         c4_r.font = Font(name=FONT_MAIN, size=20, bold=True)
-        # 執行期間：靠右且強制單行顯示（不換行）
-        c4_r.alignment = Alignment(horizontal='right', vertical='center', wrap_text=False, shrink_to_fit=True)
+        c4_r.alignment = Alignment(horizontal='left', vertical='center', wrap_text=False, shrink_to_fit=False)
         draw_outer_border_fast(ws, 4, 4, 1, total_cols)
 
         # 產品名稱與月份 (舊版樣式)
@@ -722,7 +723,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             curr_row += 1
         
         # Footer & 簽名區 (舊版樣式 + 統編對齊修正)
-        # Remarks 起始欄位：短天期（含 14 天）對齊「秒數規格」欄（第 5 欄）
+        # Remarks 規則比照聲活：14 天以下對齊秒數規格欄
         curr_row += 1; start_footer = curr_row; r_col_start = 5 if eff_days <= 14 else 6
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
