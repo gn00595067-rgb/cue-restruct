@@ -817,9 +817,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                     pass
                 r_row += 1
                 if len(lines) == 1:
-                    ws.row_dimensions[r_row].height = 24 if eff_days <= 14 else 26
+                    ws.row_dimensions[r_row].height = 26 if eff_days <= 14 else 28
                 else:
-                    ws.row_dimensions[r_row].height = 18 if eff_days <= 14 else 20
+                    ws.row_dimensions[r_row].height = 22 if eff_days <= 14 else 24
                 c = ws.cell(r_row, r_col_start)
                 c.value = line_text
                 c.font = Font(name=FONT_MAIN, size=(16 if eff_days <= 14 else 18), color=color)
