@@ -768,16 +768,18 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                     ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
                 except Exception:
                     pass
+                part_min_h = (22 if len(parts) > 1 else (24 if eff_days < 14 else 25))
+                part_v_align = 'top' if len(parts) > 1 else 'center'
                 ws.row_dimensions[r_row].height = calc_remark_row_height(
                     one,
                     font_size=(16 if eff_days < 14 else 18),
-                    min_height=(30 if eff_days < 14 else 28),
+                    min_height=part_min_h,
                     chars_per_line=(48 if eff_days < 14 else 60),
                 )
                 c = ws.cell(r_row, r_col_start)
                 c.value = one
                 c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
-                c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+                c.alignment = Alignment(horizontal='left', vertical=part_v_align, wrap_text=True)
 
         sig_col_start = 1
         for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
