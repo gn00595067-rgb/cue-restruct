@@ -739,7 +739,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
 
         def _split_remark_lines_if_needed(text, max_chars):
             """可延伸就單行，真的超過才換行；換行優先在標點。"""
-            t = (text or "").strip()
+            t = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+            t = " ".join([seg.strip() for seg in t.split("\n") if seg.strip()])
             if not t:
                 return [""]
             if len(t) <= max_chars:
@@ -789,7 +790,6 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
         sig_col_start = 1
-        for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
         
         # 乙方區塊上方分隔線：延伸為整張表寬（與上方標題分隔線一致）
         for c_idx in range(1, total_cols + 1):
