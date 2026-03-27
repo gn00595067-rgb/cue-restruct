@@ -804,25 +804,26 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
 
             max_units = _remark_chars_per_line(r_col_start, total_cols)
             lines = _simulate_wrapped_lines(rm, max_units=max_units)
-            wrapped_text = "\n".join(lines)
-
-            try:
-                ws.merge_cells(start_row=r_row + 1, start_column=r_col_start, end_row=r_row + 1, end_column=total_cols)
-            except Exception:
-                pass
-            r_row += 1
-            # 列高保險：同時參考「實際拆行數」與「估算自動換行行數」，取較大值避免文字擠疊
-            line_count = max(1, len(lines))
-            base_h = 24 if eff_days <= 14 else 26
-            line_step = 16 if eff_days <= 14 else 18
-            min_h = base_h
-            max_h = 84 if eff_days <= 14 else 96
-            row_h = base_h + (line_count - 1) * line_step
-            ws.row_dimensions[r_row].height = max(min_h, min(max_h, row_h))
-            c = ws.cell(r_row, r_col_start)
-            c.value = wrapped_text
-            c.font = Font(name=FONT_MAIN, size=(16 if eff_days <= 14 else 18), color=color)
-            c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+            # 以「每個模擬行 = 一個實際列」輸出，避免 PDF 端再次自動換行造成重疊
+            for idx, line_text in enumerate(lines):
+                try:
+                    ws.merge_cells(
+                        start_row=r_row + 1,
+                        start_column=r_col_start,
+                        end_row=r_row + 1,
+                        end_column=total_cols,
+                    )
+                except Exception:
+                    pass
+                r_row += 1
+                if len(lines) == 1:
+                    ws.row_dimensions[r_row].height = 24 if eff_days <= 14 else 26
+                else:
+                    ws.row_dimensions[r_row].height = 18 if eff_days <= 14 else 20
+                c = ws.cell(r_row, r_col_start)
+                c.value = line_text
+                c.font = Font(name=FONT_MAIN, size=(16 if eff_days <= 14 else 18), color=color)
+                c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=False)
 
         sig_col_start = 1
         
