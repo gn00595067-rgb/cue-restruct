@@ -454,60 +454,86 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             c_v.border = Border(top=Side(style=t), bottom=Side(style=b), left=Side(style=l), right=Side(style=r))
             curr_row += 1
         
-        # Remarks 起始欄位：短天期時對齊「秒數規格」欄（第 5 欄），避免向左突出
+        # Remarks 欄位起點比照鉑霖：<14 天對齊秒數規格欄，>=14 天對齊右側欄
         curr_row += 1; start_footer = curr_row; r_col_start = 5 if eff_days < 14 else 6
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
-        def _split_remark_lines(text, max_chars):
-            """短天期用：把過長備註拆成多列（盡量在標點後斷行）。"""
-            t = (text or "").strip()
-            if len(t) <= max_chars:
-                return [t]
-            # 先找 max_chars 以前最後一個較適合斷行的標點
-            cut_points = ["。", "；", "，", ",", " "]
-            cut = -1
-            for cp in cut_points:
-                idx = t.rfind(cp, 0, max_chars + 1)
-                if idx > cut:
-                    cut = idx
-            if cut <= 0:
-                cut = max_chars
-            a = t[: cut + 1].rstrip()
-            b = t[cut + 1 :].lstrip()
-            # 若還是很長，只再切一次（你要的「拆成兩列」）
-            if len(b) > max_chars:
-                b = b[:max_chars].rstrip() + "…"
-            return [a, b] if b else [a]
+        def _remark_chars_per_line(start_col, end_col):
+            width_sum = 0.0
+            for cidx in range(start_col, end_col + 1):
+                letter = get_column_letter(cidx)
+                w = ws.column_dimensions[letter].width
+                width_sum += float(w if w is not None else 8.43)
+            return max(36, int(width_sum * 0.78))
+
+        def _char_visual_width(ch):
+            if ch == "\t":
+                return 2.0
+            if ch.isspace():
+                return 0.7
+            return 2.0 if unicodedata.east_asian_width(ch) in ("W", "F") else 1.0
+
+        def _simulate_wrapped_lines(text, max_units):
+            t = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+            t = "\n".join([seg.strip() for seg in t.split("\n") if seg.strip()])
+            if not t:
+                return [""]
+            effective_units = max(24.0, float(max_units) * 0.88)
+            result = []
+            punct = set("。；，,、 ")
+            for raw_seg in t.split("\n"):
+                seg = raw_seg.strip()
+                if not seg:
+                    continue
+                line = ""
+                used = 0.0
+                last_break_idx = -1
+                i = 0
+                while i < len(seg):
+                    ch = seg[i]
+                    w = _char_visual_width(ch)
+                    if used + w <= effective_units or not line:
+                        line += ch
+                        used += w
+                        if ch in punct:
+                            last_break_idx = len(line)
+                        i += 1
+                        continue
+                    if last_break_idx > 0:
+                        result.append(line[:last_break_idx].rstrip())
+                        line = line[last_break_idx:].lstrip()
+                        used = sum(_char_visual_width(c) for c in line)
+                        last_break_idx = -1
+                    else:
+                        result.append(line.rstrip())
+                        line = ""
+                        used = 0.0
+                if line.strip():
+                    result.append(line.rstrip())
+            return result or [""]
 
         r_row = start_footer
         for rm in remarks_list:
-            r_row += 1
             is_red = rm.strip().startswith("1.") or rm.strip().startswith("4.")
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
-
-            # <14 天：用「同一格內換行」強制斷行（避免 PDF 轉檔不自動換行/不自動列高時仍看起來超出）
-            max_chars = 58 if r_col_start == 6 else 48
-            parts = _split_remark_lines(rm, max_chars=max_chars) if eff_days < 14 else [rm]
-            wrapped_text = "\n".join([p for p in parts if p is not None])
-
-            # 合併儲存格讓文字在框內顯示
-            try:
-                ws.merge_cells(start_row=r_row, start_column=r_col_start, end_row=r_row, end_column=total_cols)
-            except Exception:
-                pass
-            # 依內容估算列高，避免長句被截字
-            ws.row_dimensions[r_row].height = calc_remark_row_height(
-                wrapped_text,
-                font_size=(16 if eff_days < 14 else 18),
-                min_height=25,
-                chars_per_line=(52 if eff_days < 14 else 62),
-            )
-            c = ws.cell(r_row, r_col_start)
-            c.value = wrapped_text
-            # 短天期備註縮小字級，減少撐高造成頁尾被裁切
-            c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
-            c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+            max_units = _remark_chars_per_line(r_col_start, total_cols)
+            lines = _simulate_wrapped_lines(rm, max_units=max_units)
+            # 每個模擬行獨立輸出成一列，避免 PDF 二次換行造成重疊或截字
+            for line_text in lines:
+                try:
+                    ws.merge_cells(start_row=r_row + 1, start_column=r_col_start, end_row=r_row + 1, end_column=total_cols)
+                except Exception:
+                    pass
+                r_row += 1
+                if len(lines) == 1:
+                    ws.row_dimensions[r_row].height = 28 if eff_days < 14 else 30
+                else:
+                    ws.row_dimensions[r_row].height = 24 if eff_days < 14 else 26
+                c = ws.cell(r_row, r_col_start)
+                c.value = line_text
+                c.font = Font(name=FONT_MAIN, size=(16 if eff_days < 14 else 18), color=color)
+                c.alignment = Alignment(horizontal='left', vertical='top', wrap_text=False)
 
         sig_col_start = 1
         for _r in (start_footer, start_footer+1, start_footer+2, start_footer+3): ws.row_dimensions[_r].height = 28
