@@ -729,21 +729,29 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
         def _split_remark_lines(text, max_chars):
-            """短天期用：把過長備註拆成兩列（盡量在標點後斷行；不截斷內容）。"""
+            """把過長備註拆成多列（盡量在標點後斷行，不遺漏內容）。"""
             t = (text or "").strip()
-            if len(t) <= max_chars:
-                return [t]
+            if not t:
+                return [""]
+            out = []
             cut_points = ["。", "；", "，", ",", " "]
-            cut = -1
-            for cp in cut_points:
-                idx = t.rfind(cp, 0, max_chars + 1)
-                if idx > cut:
-                    cut = idx
-            if cut <= 0:
-                cut = max_chars
-            a = t[: cut + 1].rstrip()
-            b = t[cut + 1 :].lstrip()
-            return [a, b] if b else [a]
+            remain = t
+            while len(remain) > max_chars:
+                cut = -1
+                for cp in cut_points:
+                    idx = remain.rfind(cp, 0, max_chars + 1)
+                    if idx > cut:
+                        cut = idx
+                if cut <= 0:
+                    cut = max_chars
+                    out.append(remain[:cut].rstrip())
+                    remain = remain[cut:].lstrip()
+                else:
+                    out.append(remain[: cut + 1].rstrip())
+                    remain = remain[cut + 1 :].lstrip()
+            if remain:
+                out.append(remain)
+            return out
 
         r_row = start_footer
         for rm in remarks_list:
@@ -751,9 +759,9 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
 
-            # <14 天：真的拆成兩個 row（PDF 轉檔最穩定）；其他天期維持單列
-            max_chars = 62 if r_col_start == 6 else 52
-            parts = _split_remark_lines(rm, max_chars=max_chars) if eff_days < 14 else [rm]
+            # PDF 轉檔下，合併儲存格自動換行常不穩定；一律先切成多列避免文字消失
+            max_chars = 60 if r_col_start == 6 else 50
+            parts = _split_remark_lines(rm, max_chars=max_chars)
             for one in parts:
                 r_row += 1
                 try:
