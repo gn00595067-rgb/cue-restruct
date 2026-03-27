@@ -728,26 +728,15 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         curr_row += 1; start_footer = curr_row; r_col_start = 5 if eff_days <= 14 else 6
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
-        def _split_remark_lines(text, max_chars):
-            """短天期用：把過長備註拆成多列（盡量在標點後斷行）。"""
-            t = (text or "").strip()
-            if len(t) <= max_chars:
-                return [t]
-            # 先找 max_chars 以前最後一個較適合斷行的標點
-            cut_points = ["。", "；", "，", ",", " "]
-            cut = -1
-            for cp in cut_points:
-                idx = t.rfind(cp, 0, max_chars + 1)
-                if idx > cut:
-                    cut = idx
-            if cut <= 0:
-                cut = max_chars
-            a = t[: cut + 1].rstrip()
-            b = t[cut + 1 :].lstrip()
-            # 若還是很長，只再切一次
-            if len(b) > max_chars:
-                b = b[:max_chars].rstrip() + "…"
-            return [a, b] if b else [a]
+        def _remark_chars_per_line(start_col, end_col):
+            """依 remarks 合併區實際欄寬估算每列可容納字數（避免跨天數互相影響）。"""
+            width_sum = 0.0
+            for cidx in range(start_col, end_col + 1):
+                letter = get_column_letter(cidx)
+                w = ws.column_dimensions[letter].width
+                width_sum += float(w if w is not None else 8.43)
+            # CJK + PDF 轉檔保守估算：約每 2 欄寬單位可放 1 字
+            return max(36, int(width_sum * 0.50))
 
         r_row = start_footer
         for rm in remarks_list:
@@ -755,21 +744,19 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
 
-            # Remarks 預設單行延伸；僅在「很長」時才換行，避免不必要的大列高空白
-            max_chars = 170 if r_col_start == 6 else 150
-            parts = _split_remark_lines(rm, max_chars=max_chars) if len(rm or "") > max_chars else [rm]
-            wrapped_text = "\n".join([p for p in parts if p is not None])
+            wrapped_text = str(rm or "")
 
             try:
                 ws.merge_cells(start_row=r_row + 1, start_column=r_col_start, end_row=r_row + 1, end_column=total_cols)
             except Exception:
                 pass
             r_row += 1
+            chars_per_line = _remark_chars_per_line(r_col_start, total_cols)
             ws.row_dimensions[r_row].height = calc_remark_row_height(
                 wrapped_text,
                 font_size=(16 if eff_days <= 14 else 18),
-                min_height=22 if len(parts) == 1 else 26,
-                chars_per_line=(72 if eff_days <= 14 else 82),
+                min_height=(24 if eff_days <= 14 else 26),
+                chars_per_line=chars_per_line,
             )
             c = ws.cell(r_row, r_col_start)
             c.value = wrapped_text
