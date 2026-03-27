@@ -755,8 +755,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
 
-            # Remarks 預設單行延伸；只有可能被截字時才換行
-            max_chars = 120 if r_col_start == 6 else 105
+            # Remarks 預設單行延伸；僅在「很長」時才換行，避免不必要的大列高空白
+            max_chars = 170 if r_col_start == 6 else 150
             parts = _split_remark_lines(rm, max_chars=max_chars) if len(rm or "") > max_chars else [rm]
             wrapped_text = "\n".join([p for p in parts if p is not None])
 
@@ -768,8 +768,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             ws.row_dimensions[r_row].height = calc_remark_row_height(
                 wrapped_text,
                 font_size=(16 if eff_days <= 14 else 18),
-                min_height=22 if len(parts) == 1 else 25,
-                chars_per_line=(52 if eff_days <= 14 else 62),
+                min_height=22 if len(parts) == 1 else 26,
+                chars_per_line=(72 if eff_days <= 14 else 82),
             )
             c = ws.cell(r_row, r_col_start)
             c.value = wrapped_text
