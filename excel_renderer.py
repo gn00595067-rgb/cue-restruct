@@ -7,6 +7,7 @@ import streamlit as st
 import io
 from datetime import timedelta
 import math
+import unicodedata
 import openpyxl
 from openpyxl.utils import get_column_letter, column_index_from_string
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
@@ -729,41 +730,69 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.row_dimensions[start_footer].height = 25; ws.cell(start_footer, r_col_start).value = "Remarks：本排程表經雙方確認後視同合約之延伸，具同等法律約束力與效力"
         ws.cell(start_footer, r_col_start).font = Font(name=FONT_MAIN, size=18, bold=True)
         def _remark_chars_per_line(start_col, end_col):
-            """依 remarks 合併區實際欄寬估算每列可容納字數。"""
+            """依 remarks 合併區實際欄寬估算每列可容納的視覺寬度單位。"""
             width_sum = 0.0
             for cidx in range(start_col, end_col + 1):
                 letter = get_column_letter(cidx)
                 w = ws.column_dimensions[letter].width
                 width_sum += float(w if w is not None else 8.43)
-            return max(34, int(width_sum * 0.50))
+            return max(44, int(width_sum * 0.95))
 
-        def _split_remark_lines_if_needed(text, max_chars):
-            """可延伸就單行，真的超過才換行；換行優先在標點。"""
+        def _char_visual_width(ch):
+            if ch == "\t":
+                return 2.0
+            if ch.isspace():
+                return 0.7
+            # CJK 全形字元視覺寬度較大
+            return 2.0 if unicodedata.east_asian_width(ch) in ("W", "F") else 1.0
+
+        def _simulate_wrapped_lines(text, max_units):
+            """
+            先模擬最終視覺斷行（可延伸就延伸、超出才換行），
+            再用此結果回填儲存格與列高，避免靠死板固定字數。
+            """
             t = (text or "").replace("\r\n", "\n").replace("\r", "\n")
-            t = " ".join([seg.strip() for seg in t.split("\n") if seg.strip()])
+            t = "\n".join([seg.strip() for seg in t.split("\n") if seg.strip()])
             if not t:
                 return [""]
-            if len(t) <= max_chars:
-                return [t]
-            out = []
-            cut_points = ["。", "；", "，", ",", " "]
-            remain = t
-            while len(remain) > max_chars:
-                cut = -1
-                for cp in cut_points:
-                    idx = remain.rfind(cp, 0, max_chars + 1)
-                    if idx > cut:
-                        cut = idx
-                if cut <= 0:
-                    cut = max_chars
-                    out.append(remain[:cut].rstrip())
-                    remain = remain[cut:].lstrip()
-                else:
-                    out.append(remain[: cut + 1].rstrip())
-                    remain = remain[cut + 1 :].lstrip()
-            if remain:
-                out.append(remain)
-            return out
+            result = []
+            punct = set("。；，,、 ")
+            for raw_seg in t.split("\n"):
+                seg = raw_seg.strip()
+                if not seg:
+                    continue
+                line = ""
+                used = 0.0
+                last_break_idx = -1
+                last_break_used = 0.0
+                i = 0
+                while i < len(seg):
+                    ch = seg[i]
+                    w = _char_visual_width(ch)
+                    if used + w <= max_units or not line:
+                        line += ch
+                        used += w
+                        if ch in punct:
+                            last_break_idx = len(line)
+                            last_break_used = used
+                        i += 1
+                        continue
+                    if last_break_idx > 0:
+                        result.append(line[:last_break_idx].rstrip())
+                        remain = line[last_break_idx:].lstrip()
+                        line = remain
+                        used = sum(_char_visual_width(c) for c in line)
+                        last_break_idx = -1
+                        last_break_used = 0.0
+                    else:
+                        result.append(line.rstrip())
+                        line = ""
+                        used = 0.0
+                        last_break_idx = -1
+                        last_break_used = 0.0
+                if line.strip():
+                    result.append(line.rstrip())
+            return result or [""]
 
         r_row = start_footer
         for rm in remarks_list:
@@ -771,8 +800,8 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
             is_blue = rm.strip().startswith("6.")
             color = "FF0000" if is_red else ("0000FF" if is_blue else "000000")
 
-            max_chars = _remark_chars_per_line(r_col_start, total_cols)
-            lines = _split_remark_lines_if_needed(rm, max_chars=max_chars)
+            max_units = _remark_chars_per_line(r_col_start, total_cols)
+            lines = _simulate_wrapped_lines(rm, max_units=max_units)
             wrapped_text = "\n".join(lines)
 
             try:
@@ -781,13 +810,11 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
                 pass
             r_row += 1
             # 列高保險：同時參考「實際拆行數」與「估算自動換行行數」，取較大值避免文字擠疊
-            normalized_len = len("".join(lines))
-            estimated_auto_lines = max(1, math.ceil(normalized_len / max_chars))
-            line_count = max(1, len(lines), estimated_auto_lines)
+            line_count = max(1, len(lines))
             base_h = 24 if eff_days <= 14 else 26
-            line_step = 20 if eff_days <= 14 else 22
+            line_step = 18 if eff_days <= 14 else 20
             min_h = base_h
-            max_h = 72 if eff_days <= 14 else 86
+            max_h = 84 if eff_days <= 14 else 96
             row_h = base_h + (line_count - 1) * line_step
             ws.row_dimensions[r_row].height = max(min_h, min(max_h, row_h))
             c = ws.cell(r_row, r_col_start)
