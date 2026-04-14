@@ -49,7 +49,7 @@ RAGIC_MAP = {
     'platform': '1015934',
     'total_spots': '1015931',
     'seconds_union': '1015930',
-    'file_style_xls': '1015929',
+    'file_style_xls': '1016092',
     'file_xls':   '1015320',
     'file_pdf':   '1015321',
     'tax_id':     '1015764'
