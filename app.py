@@ -12,6 +12,7 @@ import streamlit as st
 import traceback
 import time
 from datetime import timedelta, datetime, date
+from decimal import Decimal, ROUND_HALF_UP
 
 
 def _last_day_of_next_month():
@@ -48,6 +49,10 @@ def _slice_rows_to_segment(rows, start_date, seg_start, seg_end):
             nr["schedule"] = full[seg_d0 : seg_d1 + 1] if seg_d0 >= 0 and seg_d1 < len(full) else [0] * seg_days
         out.append(nr)
     return out
+
+
+def _round_half_up(value):
+    return int(Decimal(str(value)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 def _get_cue_segment_rem(i, seg_end, def_sign):
@@ -561,7 +566,7 @@ def _render_annual_quarter_cue(store_counts_num, pricing_db, sec_factors, region
                 w.get("payment_date", _last_day_of_month_after(w["end"])),
             )
         with st.expander(f"波段 {i+1} 預覽：{start_d} ~ {end_d}", expanded=False):
-            html_preview = generate_html_preview(rows, total_days_wave, start_d, end_d, client_name, client_tax_id, p_str, format_type, _wave_rem, total_list_wave, budget_wave + int(budget_wave * 0.05), budget_wave, 0)
+            html_preview = generate_html_preview(rows, total_days_wave, start_d, end_d, client_name, client_tax_id, p_str, format_type, _wave_rem, total_list_wave, budget_wave + _round_half_up(budget_wave * 0.05), budget_wave, 0)
             if isinstance(html_preview, list):
                 for idx, one_html in enumerate(html_preview):
                     st.caption(f"第 {idx+1} 頁")
@@ -1547,7 +1552,7 @@ def main():
                     if (row.get("is_rebate") or row.get("is_custom_bonus")) and "schedule" in row:
                         row["schedule"] = expand_schedule_to_calendar(row["schedule"], segments, start_date, end_date)
             prod_cost = prod_cost_input 
-            vat = int(round(final_budget_val * 0.05))
+            vat = _round_half_up(final_budget_val * 0.05)
             grand_total = final_budget_val + vat
             
             p_str = f"{'、'.join([f'{s}秒' for s in sorted(list(set(r['seconds'] for r in rows)))])} {product_name}"

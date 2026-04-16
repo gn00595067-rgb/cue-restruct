@@ -5,7 +5,12 @@ HTML 預覽生成模組 (HTML Preview Generator)
 
 from itertools import groupby
 from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from utils import html_escape, split_period_by_months
+
+
+def _round_half_up(value):
+    return int(Decimal(str(value)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 def _render_one_month_table(rows, days_in_month, month_start, month_end, full_total_days, format_type, header_cls, budget_month, total_list_month, grand_total_month, prod_month):
@@ -78,7 +83,7 @@ def _render_one_month_table(rows, days_in_month, month_start, month_end, full_to
         grand_total_spots += day_sum
         total_row_html += f"<td style='font-weight:bold; background-color:#e0e0e0;'>{'' if day_sum == 0 else day_sum}</td>"
     total_row_html += f"<td style='font-weight:bold; background-color:#d0d0d0; border: 2px solid #000;'>{grand_total_spots}</td></tr>"
-    vat_month = int(round(budget_month * 0.05))
+    vat_month = _round_half_up(budget_month * 0.05)
     footer_html = f"<div style='margin-top:10px; font-weight:bold; text-align:right;'>製作費: ${prod_month:,}<br>5% VAT: ${vat_month:,}<br>Grand Total: ${grand_total_month:,}</div>"
     # Period 日期格式修正：%Y.%m.%d（原本誤用 'm' 導致畫面顯示 2026.m.01）
     return f"<div style='margin-bottom:24px;'><div style='margin-bottom:4px; font-weight:bold;'>Period: {month_start.strftime('%Y.%m.%d')} - {month_end.strftime('%Y.%m.%d')}</div><table><thead><tr>{th_fixed}{date_th1}{th_total_right}</tr><tr>{date_th2}</tr></thead><tbody>{tbody}{total_row_html}</tbody></table>{footer_html}</div>"
@@ -125,7 +130,7 @@ def generate_html_preview(rows, days_cnt, start_dt, end_dt, c_name, tax_id, p_di
                 rows_month.append(r2)
             total_list_month = int(round(total_list * ratio))
             budget_month = int(round(budget * ratio))
-            grand_total_month = int(round((budget + int(round(budget * 0.05))) * ratio))
+            grand_total_month = int(round((budget + _round_half_up(budget * 0.05)) * ratio))
             prod_month = int(round(prod * ratio))
             table_html = _render_one_month_table(rows_month, days_in_month, m_start, m_end, total_days, format_type, header_cls, budget_month, total_list_month, grand_total_month, prod_month)
             page_header = f"<div style='margin-bottom:10px;'>{client_info_base}<br><b>Period：</b>{m_start.strftime('%Y.%m.%d')} - {m_end.strftime('%Y.%m.%d')}</div>"
@@ -230,7 +235,7 @@ def generate_html_preview(rows, days_cnt, start_dt, end_dt, c_name, tax_id, p_di
     total_row_html += f"<td style='font-weight:bold; background-color:#d0d0d0; border: 2px solid #000;'>{grand_total_spots}</td></tr>"
 
     remarks_html = "<br>".join([html_escape(x) for x in remarks])
-    vat = int(round(budget * 0.05))
+    vat = _round_half_up(budget * 0.05)
     footer_html = f"<div style='margin-top:10px; font-weight:bold; text-align:right;'>製作費: ${prod:,}<br>5% VAT: ${vat:,}<br>Grand Total: ${grand_total:,}</div>"
 
     # CSS 樣式

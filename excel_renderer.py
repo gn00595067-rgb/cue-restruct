@@ -8,6 +8,7 @@ import io
 from datetime import timedelta
 import math
 import unicodedata
+from decimal import Decimal, ROUND_HALF_UP
 import openpyxl
 from openpyxl.utils import get_column_letter, column_index_from_string
 from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
@@ -17,6 +18,10 @@ from config import (
 )
 from pdf_converter import get_cloud_logo_bytes
 from utils import split_period_by_months
+
+
+def _round_half_up(value):
+    return int(Decimal(str(value)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
 
 
 @st.cache_data(show_spinner="正在生成 Excel 報表...", ttl=3600)
@@ -253,7 +258,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         curr_row += 1
 
         # 頁尾 (費用與簽名)
-        vat = int(budget * 0.05); grand_total = budget + vat
+        vat = _round_half_up(budget * 0.05); grand_total = budget + vat
         footer_items = [("媒體", budget), ("製作", prod), ("5% VAT", vat), ("Grand Total", grand_total)]
         for label, val in footer_items:
             if label == "媒體": continue 
@@ -441,7 +446,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.cell(curr_row, end_c_start - 1).border = Border(top=SIDE_MEDIUM, bottom=SIDE_MEDIUM, left=SIDE_THIN, right=SIDE_MEDIUM)
         curr_row += 1
 
-        vat = int(budget * 0.05); grand_total = budget + vat
+        vat = _round_half_up(budget * 0.05); grand_total = budget + vat
         footer_stack = [("製作", prod), ("5% VAT", vat), ("Grand Total", grand_total)]
         for lbl, val in footer_stack:
             ws.row_dimensions[curr_row].height = 30; c_l = ws.cell(curr_row, end_c_start+1); c_l.value = lbl; c_l.alignment = ALIGN_RIGHT; c_l.font = FONT_16
@@ -737,7 +742,7 @@ def generate_excel_from_scratch(format_type, start_dt, end_dt, client_name, tax_
         ws.cell(curr_row, end_c_start - 1).border = Border(top=SIDE_MEDIUM, bottom=SIDE_MEDIUM, left=SIDE_THIN, right=SIDE_MEDIUM)
         curr_row += 1
 
-        vat = int(budget * 0.05); grand_total = budget + vat
+        vat = _round_half_up(budget * 0.05); grand_total = budget + vat
         footer_stack = [("製作", prod), ("5% VAT", vat), ("Grand Total", grand_total)]
         for lbl, val in footer_stack:
             ws.row_dimensions[curr_row].height = 30; c_l = ws.cell(curr_row, end_c_start+1); c_l.value = lbl; c_l.alignment = ALIGN_RIGHT; c_l.font = FONT_16
