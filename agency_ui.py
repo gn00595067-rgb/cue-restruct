@@ -6,6 +6,8 @@ Streamlit 製作模式「代理商CUE」：輸入表單 → build_agency_model �
 運算邏輯面板、HTML 預覽（components.html）、下載 Excel、產生/下載 PDF。
 此模式暫不支援 Ragic 上傳。
 """
+import os
+import base64
 from datetime import datetime, date, timedelta
 
 import streamlit as st
@@ -13,7 +15,7 @@ import streamlit.components.v1 as components
 
 import config
 import agency_cue as ac
-from agency_excel import generate_agency_excel
+from agency_excel import generate_agency_excel, LOGO_2008, LOGO_DDRIVE
 from data_loader import load_agency_pricing_from_cloud
 from pdf_converter import xlsx_bytes_to_pdf_bytes
 from utils import safe_filename, html_escape
@@ -28,6 +30,16 @@ def _fmt_money(v):
     if isinstance(v, str):
         return html_escape(v)
     return f"${v:,.0f}"
+
+
+def _logo_data_uri(agency):
+    """回傳代理商 Logo 的 base64 data URI（供 HTML 預覽），無則 None。"""
+    path = {"2008傳媒": LOGO_2008, "D drive": LOGO_DDRIVE}.get(agency)
+    if not path or not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("ascii")
+    return f"data:image/png;base64,{b64}"
 
 
 def build_agency_html(model, made_date=None):
@@ -45,6 +57,9 @@ def build_agency_html(model, made_date=None):
     """
     a = model["agency"]
     out = [css]
+    logo = _logo_data_uri(a)
+    if logo:
+        out.append(f"<div style='text-align:right'><img src='{logo}' style='height:56px'></div>")
     out.append(f"<div class='meta'><b>代理商：</b>{html_escape(a)}　"
                f"<b>客戶：</b>{html_escape(model['client_name'])}　"
                f"<b>產品：</b>{html_escape(model['product_name'])}　"

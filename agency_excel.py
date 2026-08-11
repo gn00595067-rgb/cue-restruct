@@ -8,6 +8,7 @@
 版型布局取自實際範例檔實測（2008）與開發規格（D drive / 凱絡）。
 為求 LibreOffice 轉 PDF 穩定，數字一律寫入計算後的實值（非公式）。
 """
+import os
 import calendar
 from io import BytesIO
 from datetime import date
@@ -15,11 +16,28 @@ from datetime import date
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.drawing.image import Image as XLImage
 
 import config
 import agency_cue as ac
 
 FONT = config.FONT_MAIN
+
+# 代理商 Logo（隨專案打包於 assets/，確保離線與 PDF 轉檔皆可渲染）
+_ASSET_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+LOGO_2008 = os.path.join(_ASSET_DIR, "logo_2008.png")
+LOGO_DDRIVE = os.path.join(_ASSET_DIR, "logo_ddrive.png")
+
+
+def _add_logo(ws, path, anchor_cell, width, height):
+    """在指定儲存格錨點放置 Logo 圖片（單元錨定，固定顯示尺寸，單位 px）。"""
+    if not os.path.exists(path):
+        return
+    img = XLImage(path)
+    img.width = width
+    img.height = height
+    img.anchor = anchor_cell
+    ws.add_image(img)
 MONEY_FMT = '_("$"* #,##0_);_("$"* \\(#,##0\\);_("$"* "-"??_);_(@_)'
 INT_FMT = "#,##0"
 
@@ -149,6 +167,10 @@ def _render_2008(wb, sheet, model, made_date):
     for i in range(days):
         ws.column_dimensions[get_column_letter(DAY0 + i)].width = 8.9
     last_col = DAY0 + days - 1
+
+    # 2008 Logo（右上，比照範例錨定於日欄右側上方）
+    logo_col = get_column_letter(max(DAY0, last_col - 6))
+    _add_logo(ws, LOGO_2008, f"{logo_col}2", width=200, height=79)
 
     # 表頭 1~6（28pt bold）
     header_pairs = [
@@ -285,6 +307,11 @@ def _render_ddrive(wb, sheet, model, made_date):
     for i in range(days):
         ws.column_dimensions[get_column_letter(DAY0 + i)].width = 8.5
     last_col = DAY0 + days - 1
+
+    # M Drive Logo（左上），並將上方列高撐開以容納
+    for rr in (1, 2, 3, 4):
+        ws.row_dimensions[rr].height = 22
+    _add_logo(ws, LOGO_DDRIVE, "A1", width=100, height=89)
 
     # 表頭 5~7
     _set(ws, "A5", f"客戶：{model['client_name']}", size=16, bold=True, align="left")
