@@ -182,10 +182,9 @@ def render_agency_cue(sales_map=None):
         fam_cfg = None
         if fam_on:
             fam_sec = st.selectbox("全家 秒數", SEC_OPTIONS, index=SEC_OPTIONS.index(15), key="ag_fam_sec")
-            fam_share = st.number_input("全家 預算佔比 %", 0, 100, st.session_state.get("ag_fam_share", 100), key="ag_fam_share")
             fam_reb = st.number_input("全家 專案回饋 %", 0, 100, st.session_state.get("ag_fam_reb", 0), key="ag_fam_reb")
             fam_ovr = st.number_input("全家 檔次覆寫（0=自動）", 0, value=st.session_state.get("ag_fam_ovr", 0), key="ag_fam_ovr")
-            fam_cfg = {"enabled": True, "seconds": int(fam_sec), "share": int(fam_share),
+            fam_cfg = {"enabled": True, "seconds": int(fam_sec), "share": 100,
                        "rebate_pct": float(fam_reb), "spots_override": int(fam_ovr)}
 
     # --- 萬家福 ---
@@ -194,13 +193,12 @@ def render_agency_cue(sales_map=None):
         wjf_cfg = None
         if wjf_on:
             wjf_sec = st.selectbox("萬家福 秒數", SEC_OPTIONS, index=SEC_OPTIONS.index(20), key="ag_wjf_sec")
-            wjf_share = st.number_input("萬家福 預算佔比 %", 0, 100, st.session_state.get("ag_wjf_share", 100), key="ag_wjf_share")
             wjf_reb = st.number_input("萬家福 專案回饋 %", 0, 100, st.session_state.get("ag_wjf_reb", 0), key="ag_wjf_reb")
             wjf_wave = st.checkbox("整波專案回饋（整張不收費、量販手動輸入）", value=st.session_state.get("ag_wjf_wave", False), key="ag_wjf_wave")
             wjf_ovr = 0
             if wjf_wave:
                 wjf_ovr = st.number_input("萬家福 量販檔次（手動）", 0, value=st.session_state.get("ag_wjf_ovr", 0), key="ag_wjf_ovr")
-            wjf_cfg = {"enabled": True, "seconds": int(wjf_sec), "share": int(wjf_share),
+            wjf_cfg = {"enabled": True, "seconds": int(wjf_sec), "share": 100,
                        "rebate_pct": float(wjf_reb), "mag_override": int(wjf_ovr),
                        "is_rebate_wave": bool(wjf_wave)}
         elif comp_mode == ac.COMP_PLAN2:
@@ -211,8 +209,30 @@ def render_agency_cue(sales_map=None):
     if not fam_on and not wjf_on:
         st.warning("請至少啟用一個平台。")
         return
-    if fam_on and wjf_on and (fam_cfg["share"] + wjf_cfg["share"] != 100):
-        st.warning(f"兩平台佔比合計為 {fam_cfg['share'] + wjf_cfg['share']}%（非 100%），仍會照佔比計算。")
+
+    # 預算佔比：兩平台啟用時 100% 自動連動（仿舊程式，拉一邊另一邊自動補足）
+    if fam_on and wjf_on:
+        fs = st.session_state.get("ag_fam_share")
+        ws_ = st.session_state.get("ag_wjf_share")
+        if fs is None or ws_ is None or (int(fs) + int(ws_) != 100):
+            st.session_state["ag_fam_share"] = 50
+            st.session_state["ag_wjf_share"] = 50
+
+        def _link_share(changed, other):
+            st.session_state[other] = max(0, 100 - int(st.session_state[changed]))
+
+        st.markdown("**預算佔比（兩平台自動連動，合計恆為 100%）**")
+        cs1, cs2 = st.columns(2)
+        with cs1:
+            st.slider("全家企頻 %", 0, 100, key="ag_fam_share",
+                      on_change=_link_share, args=("ag_fam_share", "ag_wjf_share"))
+        with cs2:
+            st.slider("萬家福 %", 0, 100, key="ag_wjf_share",
+                      on_change=_link_share, args=("ag_wjf_share", "ag_fam_share"))
+        fam_cfg["share"] = int(st.session_state["ag_fam_share"])
+        wjf_cfg["share"] = int(st.session_state["ag_wjf_share"])
+        st.caption(f"目前佔比 → 全家企頻 **{fam_cfg['share']}%**　萬家福 **{wjf_cfg['share']}%**")
+    # 單一平台時 share 維持 100（build 會直接用整筆預算）
 
     # --- 費用/AC 設定 ---
     st.markdown("---")
