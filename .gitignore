@@ -27,3 +27,6 @@ Thumbs.db
 
 # CUE 範例檔（含實際客戶資料，勿上傳）
 cues/
+
+# 視覺驗收輸出
+tests/_visual_out/

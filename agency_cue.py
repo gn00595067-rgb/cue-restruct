@@ -46,6 +46,30 @@ KIND_SUPER_REBATE = "super_rebate"
 NET_REBATE = "專案回饋"
 NET_ON_MAG = "計價於量販"
 
+# 列標籤（媒體 / 地區 / 時段）依代理商查表，取自各家原始範例檔
+AGENCY_LABELS = {
+    "2008傳媒": {
+        "family": ("全省【全家便利商店】\n(企業頻道節目播放)", "全省", "07:00-23:00"),
+        "mag":    ("全省【萬家福】\n連鎖量販店", "全省", "0900-2300"),
+        "super":  ("全省【樂家康】\n連鎖超市店", "全省", "0000-2400"),
+    },
+    "D drive": {
+        "family": ("全家便利商店店鋪廣播", "全台", "07-23"),
+        "mag":    ("萬家福", "量販", "09-23"),
+        "super":  ("樂家康", "超市", "00-24"),
+    },
+    "凱絡": {
+        "family": ("全台 全家便利商店\n(企業頻道節目播放)", "全省\n全家便利商店", "0700-2300"),
+        "mag":    ("全台【萬家福/樂家康】\n連鎖量販店＋超市\n(企業頻道節目播放)", "萬家福(量販)", "0900-2300 "),
+        "super":  ("", "樂家康(超市)", "0000-2400 "),
+    },
+}
+
+
+def _labels(agency, key):
+    """取得（媒體, 地區, 時段）列標籤；未知代理商退回 2008 式。"""
+    return AGENCY_LABELS.get(agency, AGENCY_LABELS["2008傳媒"])[key]
+
 
 # =============================================================================
 # 基礎數值工具
@@ -226,13 +250,6 @@ def _new_row(kind, media_label, region_label, daypart, seconds, spots, schedule,
     }
 
 
-def _material_str_2008(material_due):
-    """2008 素材提供時間顯示為 M/D 文字。"""
-    if not material_due:
-        return ""
-    return f"{material_due.month}/{material_due.day}"
-
-
 def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
                         spots_override, material_due, ac_pct, agency_pricing, logs):
     """建立全家企頻 sheet。"""
@@ -253,6 +270,7 @@ def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
     # COMP_NONE：無
 
     list_per = get_agency_list_price(agency, PLATFORM_FAMILY, sec, agency_pricing)
+    fam_label, fam_region, fam_daypart = _labels(agency, "family")
     rows = []
 
     if agency == "2008傳媒":
@@ -260,10 +278,10 @@ def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
         main_sch = dist_even_end(main_spots, days)
         net_value = rhu(unit_net * main_spots)  # 「合計」欄（G）= 實作價值
         rows.append(_new_row(
-            KIND_MAIN, "全省【全家便利商店】\n(企業頻道節目播放)", "全省", "07:00-23:00",
+            KIND_MAIN, fam_label, fam_region, fam_daypart,
             sec, main_spots, main_sch,
             list_per=list_per, list_total=list_per * (main_spots + comp_spots),
-            net_display=net_value, material=_material_str_2008(material_due),
+            net_display=net_value, material=material_due,
         ))
         if comp_spots > 0:
             rows.append(_new_row(
@@ -276,19 +294,15 @@ def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
         total_main = main_spots + comp_spots
         if agency == "凱絡":
             main_sch = dist_carat(total_main, days)
-            media_label = "全台 全家便利商店\n(企業頻道節目播放)"
-            daypart = "0700-2300"
         else:  # D drive
             main_sch = dist_plain(total_main, days, "front")
-            media_label = "全家便利商店店鋪廣播"
-            daypart = "07:00-23:00"
         market_per = rhu(list_per * config.CARAT_MARKET_RATIO)
         uni_per = rhu(list_per * config.CARAT_UNI_RATIO)
         rows.append(_new_row(
-            KIND_MAIN, media_label, "全台", daypart, sec, total_main, main_sch,
+            KIND_MAIN, fam_label, fam_region, fam_daypart, sec, total_main, main_sch,
             list_per=list_per, list_total=list_per * total_main,
             market_per=market_per, uni_per=uni_per, uni_total=uni_per * total_main,
-            net_display=budget, material=_material_str_2008(material_due),
+            net_display=budget, material=material_due,
         ))
         budget_net = budget
 
@@ -348,6 +362,9 @@ def _build_wjf_sheet(agency, sec, budget, days, rebate_pct, mag_override,
     market_per = rhu(list_per * config.CARAT_MARKET_RATIO)
     uni_per = rhu(list_per * config.CARAT_UNI_RATIO)
 
+    mag_label, mag_region, mag_daypart = _labels(agency, "mag")
+    super_label, super_region, super_daypart = _labels(agency, "super")
+
     rows = []
     mag_net = NET_REBATE if is_rebate_wave else budget
     super_net = NET_REBATE if is_rebate_wave else NET_ON_MAG
@@ -358,10 +375,10 @@ def _build_wjf_sheet(agency, sec, budget, days, rebate_pct, mag_override,
     else:
         mag_sch = dist_plain(mag_spots, days, "front")
     rows.append(_new_row(
-        KIND_MAIN, "全省【萬家福】\n連鎖量販店", "全省", "09:00-23:00", sec, mag_spots, mag_sch,
+        KIND_MAIN, mag_label, mag_region, mag_daypart, sec, mag_spots, mag_sch,
         list_per=list_per, list_total=list_per * mag_spots,
         market_per=market_per, uni_per=uni_per, uni_total=uni_per * mag_spots,
-        net_display=mag_net, material=_material_str_2008(material_due),
+        net_display=mag_net, material=material_due,
     ))
     # 超市列（計價於量販）
     if agency == "凱絡":
@@ -369,7 +386,7 @@ def _build_wjf_sheet(agency, sec, budget, days, rebate_pct, mag_override,
     else:
         super_sch = dist_plain(super_spots, days, "front")
     rows.append(_new_row(
-        KIND_SUPER, "全省【樂家康】\n連鎖超市店", "全省", "00:00-24:00", sec, super_spots, super_sch,
+        KIND_SUPER, super_label, super_region, super_daypart, sec, super_spots, super_sch,
         list_per=list_per, list_total=0,
         market_per=market_per, uni_per=uni_per, uni_total=uni_per * super_spots,
         net_display=super_net,
@@ -378,13 +395,13 @@ def _build_wjf_sheet(agency, sec, budget, days, rebate_pct, mag_override,
     # 方案二凌晨補償列（若有）
     if comp_mag > 0:
         rows.append(_new_row(
-            KIND_MAIN, "全省【萬家福】\n連鎖量販店(凌晨轉換)", "全省", "09:00-23:00", sec,
+            KIND_MAIN, mag_label, mag_region + "(凌晨轉換)", mag_daypart, sec,
             comp_mag, None, list_per=list_per, list_total=list_per * comp_mag,
             market_per=market_per, uni_per=uni_per, uni_total=uni_per * comp_mag,
             net_display=NET_REBATE,
         ))
         rows.append(_new_row(
-            KIND_SUPER, "全省【樂家康】\n連鎖超市店(凌晨轉換)", "全省", "00:00-24:00", sec,
+            KIND_SUPER, super_label, super_region + "(凌晨轉換)", super_daypart, sec,
             comp_super, None, list_per=list_per, list_total=0,
             market_per=market_per, uni_per=uni_per, uni_total=uni_per * comp_super,
             net_display=NET_ON_MAG,
@@ -398,13 +415,13 @@ def _build_wjf_sheet(agency, sec, budget, days, rebate_pct, mag_override,
         reb_sch = None if agency == "凱絡" else dist_plain(reb_mag, days, "front")
         reb_super_sch = None if agency == "凱絡" else dist_plain(reb_super, days, "front")
         rows.append(_new_row(
-            KIND_REBATE, "全省【萬家福】\n連鎖量販店", "全省", "09:00-23:00", sec, reb_mag, reb_sch,
+            KIND_REBATE, mag_label, mag_region, mag_daypart, sec, reb_mag, reb_sch,
             list_per=list_per, list_total=list_per * reb_mag,
             market_per=market_per, uni_per=uni_per, uni_total=uni_per * reb_mag,
             net_display=NET_REBATE,
         ))
         rows.append(_new_row(
-            KIND_SUPER_REBATE, "全省【樂家康】\n連鎖超市店", "全省", "00:00-24:00", sec, reb_super, reb_super_sch,
+            KIND_SUPER_REBATE, super_label, super_region, super_daypart, sec, reb_super, reb_super_sch,
             list_per=list_per, list_total=0,
             market_per=market_per, uni_per=uni_per, uni_total=uni_per * reb_super,
             net_display=NET_ON_MAG,
@@ -526,9 +543,8 @@ def build_agency_model(agency, client_name, product_name, campaign,
             material_due, ac_pct, agency_pricing, logs,
             comp_mag=comp_mag, comp_super=comp_super,
         )
-        # 移除量販/超市主列（本身無預算），只保留補償列
-        sheet["rows"] = [r for r in sheet["rows"] if r["spots"] > 0 and r["kind"] not in (KIND_MAIN, KIND_SUPER)
-                         or "凌晨" in r["media_label"]]
+        # 移除量販/超市主列（本身無預算 spots=0），只保留補償列（spots>0）
+        sheet["rows"] = [r for r in sheet["rows"] if r["spots"] > 0]
         sheets.append(sheet)
 
     if remarks is None:
@@ -565,8 +581,8 @@ def build_agency_model(agency, client_name, product_name, campaign,
 # =============================================================================
 # 預設備註與請款說明
 # =============================================================================
-def default_remarks(agency, sign_date=None):
-    """各代理商預設備註模板。"""
+def default_remarks(agency, sign_date=None, payment_note=""):
+    """各代理商預設備註模板（原始範例原文）。"""
     if agency == "2008傳媒":
         return [
             "※以上各贈檔時段若已滿檔，則須更動時段",
@@ -575,19 +591,26 @@ def default_remarks(agency, sign_date=None):
             "※廣告素材至少需要播出日之7天前給予(週六.週日除外)，若無如期給予素材檔次會如期順延",
         ]
     if agency == "凱絡":
-        sd = sign_date.strftime("%Y/%m/%d") if sign_date else "____/__/__"
+        if sign_date:
+            wd = "一二三四五六日"[sign_date.weekday()]
+            sd = f"{sign_date.month}/{sign_date.day}(週{wd})"
+        else:
+            sd = "__/__(週_)"
+        pay = payment_note or "依走期各月天數比例拆分，詳如報價"
         return [
-            f"1. 請於 {sd} 前回簽及進單，方可順利上檔。",
-            "2. 通路店鋪數與開機率至少七成(以上)，每日因加盟數調整、店舖改裝維護等狀況會有一定幅度增減。",
-            "3. 以上節目時段如遇滿檔，上檔時間挪後或更換至同級時段。",
-            "4. 廣告素材需於上檔前 5 個工作天提供。",
-            "5. 請款說明：依走期各月天數比例拆分，詳如請款金額。",
-            "★廣告稿件提供：",
-            "□是，已提供廣告稿件，並確認以此稿件託播。",
-            "□否，尚未提供廣告稿件，將於上檔前補齊。",
+            "1.更改媒體排期表請於播出前十個工作天通知。",
+            "2.以上報價僅適用於本次的專案優惠價，而非代表媒體單次購買價格；若中途停Cue，則已執行之廣告檔次，以單檔單次計費。",
+            "3.客戶選擇凱絡公司提供的媒體服務，客戶並同意接受凱絡公司的條款（CARAT TERMS OF BUSINESS）的約束。 "
+            "CARAT TERMS OF BUSINESS網址：http://file.carat.com.tw/legal/Carat_terms_of_business.pdf。",
+            f"4.請於{sd}中午前簽回Cue表確認，並傳真至(02)2717-3011，謝謝",
+            f"5.請款說明：{pay}",
+            "6.■以下請PM填寫：",
+            "★廣告稿件已送品牌創意檢視表電子化系統核准製作?",
+            "□是，文件編號__________________費用分攤明細__________________。",
+            "□否，請於上CUE前完成電子流程送簽。",
         ]
-    # D drive
-    return ["備註："]
+    # D drive：備註只有請款金額一行，由渲染器自組
+    return []
 
 
 def default_payment_note(start_dt, end_dt, net_total):

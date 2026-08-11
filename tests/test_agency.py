@@ -216,8 +216,10 @@ def test_E2_plan2():
     assert main["spots"] == 1440  # 方案二全家不加補償列
     assert reb["spots"] == 576    # round(1440×0.4)
     wjf = _sheet(m, "萬家福")
-    comp_mag = [r for r in wjf["rows"] if "凌晨" in r["media_label"] and r["kind"] == ac.KIND_MAIN][0]
-    comp_sup = [r for r in wjf["rows"] if "凌晨" in r["media_label"] and r["kind"] == ac.KIND_SUPER][0]
+    def _has_comp(r):
+        return "凌晨" in (r["media_label"] + r["region_label"])
+    comp_mag = [r for r in wjf["rows"] if _has_comp(r) and r["kind"] == ac.KIND_MAIN][0]
+    comp_sup = [r for r in wjf["rows"] if _has_comp(r) and r["kind"] == ac.KIND_SUPER][0]
     assert comp_mag["spots"] == 112 and comp_mag["net_display"] == ac.NET_REBATE
     assert comp_sup["spots"] == 192
 
