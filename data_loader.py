@@ -79,3 +79,36 @@ def load_config_from_cloud(share_url):
         return store_counts, store_counts_num, pricing_db, sec_factors, sales_map, None
     except Exception as e:
         return None, None, None, None, None, f"讀取失敗: {str(e)}"
+
+
+@st.cache_data(ttl=300)
+def load_agency_pricing_from_cloud(share_url):
+    """
+    從 Google Sheet 的 `AgencyPricing` 分頁讀取代理商牌價（定價）。
+    欄位：Agency | Platform | Seconds | List_Per_Spot。
+    回傳 {(agency, platform): {seconds: per_spot}}；讀不到或欄位不齊回傳 None（改用 fallback）。
+    """
+    try:
+        match = re.search(r"/d/([a-zA-Z0-9-_]+)", share_url)
+        if not match:
+            return None
+        file_id = match.group(1)
+        url = f"https://docs.google.com/spreadsheets/d/{file_id}/gviz/tq?tqx=out:csv&sheet=AgencyPricing"
+        df = pd.read_csv(url)
+        df.columns = [c.strip() for c in df.columns]
+        need = {"Agency", "Platform", "Seconds", "List_Per_Spot"}
+        if not need.issubset(set(df.columns)):
+            return None
+        out = {}
+        for _, row in df.iterrows():
+            try:
+                agency = str(row["Agency"]).strip()
+                platform = str(row["Platform"]).strip()
+                sec = int(row["Seconds"])
+                per = int(float(str(row["List_Per_Spot"]).replace(",", "")))
+            except (ValueError, TypeError):
+                continue
+            out.setdefault((agency, platform), {})[sec] = per
+        return out or None
+    except Exception:
+        return None

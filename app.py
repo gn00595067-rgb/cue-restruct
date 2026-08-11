@@ -100,6 +100,7 @@ from html_generator import generate_html_preview
 from excel_renderer import generate_excel_from_scratch
 from pdf_converter import xlsx_bytes_to_pdf_bytes
 from annual_quarter_cue import build_wave_rows, distribute_by_wave_days, round_to_even
+from agency_ui import render_agency_cue
 from ragic_api import (
     search_ragic_records,
     upload_to_ragic,
@@ -761,9 +762,22 @@ def main():
         except:
             fmt_idx = 0
         
+        # 製作模式（先分流：代理商CUE 與「選擇格式／交換合約」無關，須在其之前分流）
+        mode_options = ["一般CUE", "年約季約細CUE", "代理商CUE"]
+        cur_mode = st.session_state.get("cue_mode", "一般CUE")
+        try:
+            mode_idx = mode_options.index(cur_mode)
+        except ValueError:
+            mode_idx = 0
+        cue_mode = st.radio("製作模式", mode_options, index=mode_idx, key="cue_mode", horizontal=True,
+                            help="年約季約細CUE：以已知檔次與實收分配至各波段，每波段獨立存檔。代理商CUE：2008傳媒／D drive／凱絡專用格式。")
+
+        if cue_mode == "代理商CUE":
+            render_agency_cue(SALES_MAP)
+            return
+
         format_type = st.radio("選擇格式", fmt_options, index=fmt_idx, horizontal=True)
         is_barter_contract = st.checkbox("是否為交換合約", value=st.session_state.get("is_barter_contract", False), key="is_barter_contract", help="交換合約：檔次依定價計算，不提供優惠回饋檔次。")
-        cue_mode = st.radio("製作模式", ["一般CUE", "年約季約細CUE"], index=0 if st.session_state.get("cue_mode", "一般CUE") == "一般CUE" else 1, key="cue_mode", horizontal=True, help="年約季約細CUE：以已知檔次與實收分配至各波段，每波段獨立存檔。")
 
         if cue_mode == "年約季約細CUE":
             _render_annual_quarter_cue(STORE_COUNTS_NUM, PRICING_DB, SEC_FACTORS, REGIONS_ORDER, fmt_options, fmt_idx, SALES_MAP)

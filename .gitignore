@@ -24,3 +24,6 @@ Thumbs.db
 # 暫存 / 下載
 *.tmp
 *.temp
+
+# CUE 範例檔（含實際客戶資料，勿上傳）
+cues/
