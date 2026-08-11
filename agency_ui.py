@@ -142,8 +142,8 @@ def render_agency_cue(sales_map=None):
     with c5:
         end_date = st.date_input("結束日", st.session_state.get("ag_end", date(2026, 9, 1)), key="ag_end")
     with c6:
-        default_mat = start_date - timedelta(days=7)
-        material_due = st.date_input("素材提供時間（預設開始日−7天）", default_mat, key="ag_material")
+        default_mat = ac.minus_business_days(start_date, 5)
+        material_due = st.date_input("素材提供時間（預設開始日−5個工作天）", default_mat, key="ag_material")
     if end_date < start_date:
         st.error("結束日不可早於開始日")
         return
