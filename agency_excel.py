@@ -219,8 +219,8 @@ def _render_2008(wb, sheet, model, made_date):
     for r in (8, 9, 10):
         ws.row_dimensions[r].height = 41.9
 
-    # Logo 右上
-    _add_logo(ws, LOGO_2008, f"{get_column_letter(max(DAY0, last_col - 5))}4", width=150, height=77)
+    # Logo 右上（8.93cm × 4.85cm，96DPI 換算：寬 338px、高 183px）
+    _add_logo(ws, LOGO_2008, f"{get_column_letter(max(DAY0, last_col - 5))}4", width=338, height=183)
 
     # 表頭 1~6：標籤靠左、值靠左
     header_pairs = [
