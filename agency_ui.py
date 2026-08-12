@@ -42,6 +42,67 @@ def _logo_data_uri(agency):
     return f"data:image/png;base64,{b64}"
 
 
+def _render_pricing_rules(agency):
+    """在運算邏輯面板顯示該代理商定價規則；數值直接讀 config，永遠與算法同步。
+
+    完整說明見 repo 根目錄「代理商定價規則.md」。
+    """
+    def _row(table):
+        return " / ".join(str(int(table.get(s, 0))) for s in SEC_OPTIONS) if table else "—"
+
+    fam_tbl = config.AGENCY_LIST_PRICE_FALLBACK.get((agency, ac.PLATFORM_FAMILY))
+    wjf_tbl = config.AGENCY_LIST_PRICE_FALLBACK.get((agency, ac.PLATFORM_WJF))
+    fn, fs, fsec = config.AGENCY_FAMILY_BASE
+    wn, ws, wsec = config.AGENCY_WJF_BASE
+    sr_a, sr_b = config.AGENCY_SUPER_RATIO
+    ac_default = config.AGENCY_AC_DEFAULT.get(agency)
+
+    st.markdown("---")
+    st.markdown("#### 📖 定價規則（本代理商）")
+
+    # 1. 牌價（表上定價）
+    st.markdown(
+        "**牌價（List，每檔定價；秒 5/10/15/20/30）**\n\n"
+        f"| 平台 | 5 | 10 | 15 | 20 | 30 |\n|---|---|---|---|---|---|\n"
+        f"| 全家企頻 | {_row(fam_tbl).replace(' / ', ' | ')} |\n"
+        f"| 萬家福 | {_row(wjf_tbl).replace(' / ', ' | ')} |"
+    )
+    st.caption("查價順序：Google Sheet(AgencyPricing) → config fallback；缺該秒數取最近秒數線性換算。")
+
+    # 2. 凱絡三層價
+    if agency == "凱絡":
+        st.markdown(
+            f"**凱絡三層價**：市場價 = 牌價 × {config.CARAT_MARKET_RATIO}、"
+            f"統一價 = 牌價 × {config.CARAT_UNI_RATIO}（表上「總價」= 統一價 × 檔次）"
+        )
+
+    # 3. 實作價（真正收錢基準）
+    st.markdown(
+        "**實作價（Net，秒數線性；= 基準 / 標準檔次 / 基準秒 × 秒）**\n\n"
+        f"- 全家企頻：{fn:,}/{fs}/{fsec} × 秒（每秒 {fn/fs/fsec:.2f}）\n"
+        f"- 萬家福量販：{wn:,}/{ws}/{wsec} × 秒（每秒 {wn/ws/wsec:.2f}）\n"
+        f"- 超市（樂家康）：檔次 = 量販 × {sr_a}/{sr_b}，計價於量販、不另收費\n"
+        f"- 檔次 = round(該平台預算 ÷ 單檔實作價)"
+    )
+
+    # 4. 費用區
+    if agency == "2008傳媒":
+        fee = f"AC = net × {ac_default}%（預設）；稅 = (net+AC) × 5%；合計 = net+AC+稅"
+    elif agency == "凱絡":
+        fee = "AC 3% 預設免收（顯示「-」），填了才收；VAT = (net+AC) × 5%；合計 = net+AC+VAT"
+    else:  # D drive
+        fee = "無 AC；VAT = net × 5%；合計 = net+VAT"
+    st.markdown(f"**費用區**：{fee}")
+
+    # 5. 例外提醒
+    st.info(
+        "⚠️ 秒數係數三個例外：\n"
+        "1. 凱絡「全家」是純線性（每秒 100），不照全家廣播係數\n"
+        "2. 2008「萬家福」套全家廣播係數（非家樂福），故比凱絡/D drive 便宜\n"
+        "3. 基準秒不同：萬家福基準 20 秒、全家/2008 基準 30 秒"
+    )
+
+
 def build_agency_html(model, made_date=None):
     """產出 HTML 預覽字串（供 components.html 呈現，金額含 $ 不會被誤判為 LaTeX）。"""
     css = """
@@ -274,6 +335,7 @@ def render_agency_cue(sales_map=None):
     with st.expander("🧮 運算邏輯（透明化）"):
         for line in model["logs"]:
             st.text(line)
+        _render_pricing_rules(agency)
 
     # HTML 預覽（必須用 components.html，避免 $ 被當 LaTeX）
     st.markdown("#### 預覽")
