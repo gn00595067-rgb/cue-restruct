@@ -542,7 +542,13 @@ def _render_carat(wb, sheet, model, made_date):
         _merge(ws, f"{col}5:{col}7")
     _write_day_header(ws, DAY0, start_dt, days, 5, 6, 7, _en_weekday, month_style="en",
                       size=12, date_fmt="#,##0", weekend_fill_rows=(7,))
-    _box(ws, 5, 1, 7, last_col, edge="medium", inner="thin")
+    # 最右加「總檔數」欄（對齊範本）
+    tot_col = last_col + 1
+    tl = get_column_letter(tot_col)
+    ws.column_dimensions[tl].width = 9.5
+    _set(ws, f"{tl}5", "總檔數", size=12, bold=True, wrap=True)
+    _merge(ws, f"{tl}5:{tl}7")
+    _box(ws, 5, 1, 7, tot_col, edge="medium", inner="thin")
 
     day_cols = [(DAY0 + i, i) for i in range(days)]
     r = 8
@@ -576,7 +582,11 @@ def _render_carat(wb, sheet, model, made_date):
             _set(ws, f"G{rr}", row["uni_per"], size=12, fmt=ACCT)
             _set(ws, f"H{rr}", row["spots"], size=12, fmt=CARAT_H_FMT)
             _set(ws, f"I{rr}", row["uni_total"], size=12, fmt=ACCT)
-            _net_cell(ws, f"J{rr}", row["net_display"], size=12,
+            # 回饋列在表上顯示「聲活回饋」（內部 net_display 仍為專案回饋）
+            jval = row["net_display"]
+            if row["kind"] == ac.KIND_REBATE and jval == ac.NET_REBATE:
+                jval = ac.CARAT_REBATE_LABEL
+            _net_cell(ws, f"J{rr}", jval, size=12,
                       bold=(row["kind"] == ac.KIND_MAIN), align="center")
             media_value += row["uni_total"] if isinstance(row["uni_total"], (int, float)) else 0
             if row["schedule"] is None:
@@ -588,6 +598,8 @@ def _render_carat(wb, sheet, model, made_date):
                 for cidx, off in day_cols:
                     _set(ws, f"{get_column_letter(cidx)}{rr}", row["schedule"][off], size=11, fmt=DAY_FMT)
                 schedule_rows.append((rr, row["schedule"]))
+            # 總檔數（最右欄）
+            _set(ws, f"{tl}{rr}", row["spots"], size=12, fmt=CARAT_H_FMT)
         _set(ws, f"A{gtop}", grp[0]["media_label"], size=12, wrap=True)
         r += len(grp)
     data_bot = r - 1
@@ -602,7 +614,7 @@ def _render_carat(wb, sheet, model, made_date):
             for col in ("B", "C", "D"):
                 _merge(ws, f"{col}{data_top}:{col}{data_bot}")
 
-    _box(ws, data_top, 1, data_bot, last_col, edge="medium", inner="thin")
+    _box(ws, data_top, 1, data_bot, tot_col, edge="medium", inner="thin")
 
     # 媒體總價值 / 優惠總價值（A 標籤、B 數字，medium 方框）
     mv_top = data_bot + 1

@@ -49,6 +49,7 @@ KIND_SUPER_REBATE = "super_rebate"
 
 NET_REBATE = "專案回饋"
 NET_ON_MAG = "計價於量販"
+CARAT_REBATE_LABEL = "聲活回饋"   # 凱絡回饋列在表上顯示的名稱（內部仍記 NET_REBATE）
 
 # 列標籤（媒體 / 地區 / 時段）依代理商查表，取自各家原始範例檔
 AGENCY_LABELS = {
