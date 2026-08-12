@@ -489,7 +489,8 @@ def _render_ddrive(wb, sheet, model, made_date):
         rr = br + 1 + idx
         if idx > 0:
             ws.row_dimensions[rr].height = 40
-            part = "　　　　" + part  # 續月縮排，對齊首列金額
+            # 續月縮排＝前綴「* 請款金額：」寬度(≈6全形)，對齊首列「8月份」
+            part = "　　　　　　" + part
         _set(ws, f"A{rr}", part, size=22, align="left", wrap=True)
         _merge(ws, f"A{rr}:E{rr}")
 
