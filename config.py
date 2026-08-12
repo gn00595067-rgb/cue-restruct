@@ -145,8 +145,8 @@ AGENCY_SUPER_RATIO = (720, 420)          # 超市檔次 = 量販 × 720/420
 CARAT_MARKET_RATIO = 0.8   # 市場價 = 定價 × 0.8
 CARAT_UNI_RATIO = 0.75     # 統一價 = 定價 × 0.75
 
-# 各代理商 AC 預設：2008=3%、佳聖 無、凱絡 免收（None 表示免收/無）
-AGENCY_AC_DEFAULT = {"2008傳媒": 3.0, "佳聖": None, "凱絡": None}
+# 各代理商 AC 預設：2008=3%、凱絡=3%（比照2008，含進VAT/Grand-Total）、佳聖 無（None 表示免收/無）
+AGENCY_AC_DEFAULT = {"2008傳媒": 3.0, "佳聖": None, "凱絡": 3.0}
 
 # 牌價（定價，每檔 List 價）fallback；同時作為 Google Sheet AgencyPricing 分頁範本內容
 # 查價順序：Sheet(AgencyPricing) → 此 fallback；該秒數無資料時取最接近秒數依線性比例換算

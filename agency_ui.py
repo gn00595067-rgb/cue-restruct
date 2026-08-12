@@ -98,7 +98,7 @@ def _render_pricing_rules(agency):
     if agency == "2008傳媒":
         fee = f"AC = net × {ac_default}%（預設）；稅 = (net+AC) × 5%；合計 = net+AC+稅"
     elif agency == "凱絡":
-        fee = "AC 3% 預設免收（顯示「-」），填了才收；VAT = (net+AC) × 5%；合計 = net+AC+VAT"
+        fee = "AC = net × 3%（預設收，比照2008）；VAT = (net+AC) × 5%；合計 = net+AC+VAT；特殊案例可勾免收顯示「-」"
     else:  # 佳聖
         fee = "無 AC；VAT = net × 5%；合計 = net+VAT"
     st.markdown(f"**費用區**：{fee}")
@@ -310,7 +310,8 @@ def render_agency_cue(sales_map=None):
     if agency == "2008傳媒":
         ac_pct = st.number_input("AC %", 0.0, 100.0, float(config.AGENCY_AC_DEFAULT.get("2008傳媒") or 3.0), step=0.5, key="ag_ac")
     elif agency == "凱絡":
-        ac_free = st.checkbox("A.C 3% 免收（顯示「-」）", value=True, key="ag_ac_free")
+        # 預設收 A.C 3%（比照2008、含進下方 VAT/Grand-Total）；特殊案例可勾免收顯示「-」
+        ac_free = st.checkbox("A.C 3% 免收（顯示「-」）", value=False, key="ag_ac_free")
         ac_pct = None if ac_free else 3.0
     else:
         st.caption("佳聖 無 AC 欄位。")
@@ -319,9 +320,13 @@ def render_agency_cue(sales_map=None):
     if agency == "凱絡":
         sign_date = st.date_input("凱絡 簽回期限", start_date - timedelta(days=3), key="ag_sign")
 
-    # 備註（可編輯）
+    # 備註（可編輯）；各代理商備註不同，切換公司時自動換成該家預設備註
     default_remarks = ac.default_remarks(agency, sign_date)
-    remarks_text = st.text_area("備註（每行一條）", "\n".join(default_remarks), height=140, key="ag_remarks")
+    default_text = "\n".join(default_remarks)
+    if st.session_state.get("ag_remarks_for") != agency:
+        st.session_state["ag_remarks"] = default_text
+        st.session_state["ag_remarks_for"] = agency
+    remarks_text = st.text_area("備註（每行一條）", key="ag_remarks", height=140)
     remarks = [x for x in remarks_text.split("\n") if x.strip()]
 
     payment_note = st.text_input("請款金額說明（留空自動依走期各月比例拆分）",
