@@ -580,10 +580,19 @@ def _render_carat(wb, sheet, model, made_date):
                     _set(ws, f"{get_column_letter(cidx)}{rr}", row["schedule"][off], size=11, fmt=DAY_FMT)
                 schedule_rows.append((rr, row["schedule"]))
         _set(ws, f"A{gtop}", grp[0]["media_label"], size=12, wrap=True)
-        if len(grp) > 1:
-            _merge(ws, f"A{gtop}:A{r + len(grp) - 1}")
         r += len(grp)
     data_bot = r - 1
+
+    # 媒體別（A）整塊合併為單一格（全表同一媒體別）；
+    # 全家表另把地區/時段/素材（B/C/D）併入回饋等延續列，使左側整齊。
+    # 萬家福表量販/超市地區時段不同，故 B/C/D 逐列保留、只合併媒體別。
+    is_wjf = sheet["platform"] == ac.PLATFORM_WJF
+    if data_bot > data_top:
+        _merge(ws, f"A{data_top}:A{data_bot}")
+        if not is_wjf:
+            for col in ("B", "C", "D"):
+                _merge(ws, f"{col}{data_top}:{col}{data_bot}")
+
     _box(ws, data_top, 1, data_bot, last_col, edge="medium", inner="thin")
 
     # 媒體總價值 / 優惠總價值（A 標籤、B 數字，medium 方框）
