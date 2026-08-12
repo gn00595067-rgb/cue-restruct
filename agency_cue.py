@@ -2,7 +2,7 @@
 """
 代理商 CUE 計算模組 (Agency Cue Calculator)
 
-負責三家配合代理商（2008傳媒 / D drive / 凱絡）專用 CUE 表的純計算：
+負責三家配合代理商（2008傳媒 / 佳聖 / 凱絡）專用 CUE 表的純計算：
 實作價（賣給客戶的 Net）、牌價（表上定價 List）、每日檔次分配、
 凌晨補償四方案、專案回饋加贈、費用區結構。
 
@@ -37,7 +37,7 @@ COMP_NONE = "無補償"
 COMP_OPTIONS = [COMP_MOVE50, COMP_PLAN1, COMP_PLAN2, COMP_NONE]
 
 # 2008 萬家福專屬：固定 10% 回饋檔直接折進每日排檔（不另立回饋列），實收不變。
-# 其他兩家（D drive / 凱絡）照原規則（回饋另立列）。
+# 其他兩家（佳聖 / 凱絡）照原規則（回饋另立列）。
 WJF_2008_REBATE_PCT = 10.0
 
 # row.kind
@@ -57,7 +57,7 @@ AGENCY_LABELS = {
         "mag":    ("全省【萬家福】\n連鎖量販店", "全省", "0900-2300"),
         "super":  ("全省【樂家康】\n連鎖超市店", "全省", "0000-2400"),
     },
-    "D drive": {
+    "佳聖": {
         "family": ("全家便利商店店鋪廣播", "全台", "07-23"),
         "mag":    ("萬家福", "量販", "09-23"),
         "super":  ("樂家康", "超市", "00-24"),
@@ -150,7 +150,7 @@ def get_agency_list_price(agency, platform, sec, agency_pricing=None):
 def dist_plain(n, d, remainder_at="front"):
     """
     平均分配，餘數放最前(front)或最後(end)。可含奇數。
-    D drive 全部用 front；2008 萬家福用 end。
+    佳聖 全部用 front；2008 萬家福用 end。
     """
     if d <= 0:
         return []
@@ -294,11 +294,11 @@ def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
             ))
         budget_net = net_value
     else:
-        # D drive / 凱絡：補償直接併入主列（單列 = 主+補償），逐日排檔
+        # 佳聖 / 凱絡：補償直接併入主列（單列 = 主+補償），逐日排檔
         total_main = main_spots + comp_spots
         if agency == "凱絡":
             main_sch = dist_carat(total_main, days)
-        else:  # D drive
+        else:  # 佳聖
             main_sch = dist_plain(total_main, days, "front")
         market_per = rhu(list_per * config.CARAT_MARKET_RATIO)
         uni_per = rhu(list_per * config.CARAT_UNI_RATIO)
@@ -323,7 +323,7 @@ def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
             if agency == "凱絡":
                 reb_sch = None  # 凱絡回饋列合併顯示
             else:
-                reb_sch = dist_plain(reb, days, "front")  # D drive 逐日排檔
+                reb_sch = dist_plain(reb, days, "front")  # 佳聖 逐日排檔
             market_per = rhu(list_per * config.CARAT_MARKET_RATIO)
             uni_per = rhu(list_per * config.CARAT_UNI_RATIO)
             rows.append(_new_row(
@@ -478,7 +478,7 @@ def _build_fees(agency, budget_net, ac_pct, is_rebate_wave=False):
         grand = budget_net + ac + vat
         return {"type": "carat", "subtotal": budget_net, "ac_free": ac_free,
                 "ac": ac, "vat": vat, "grand": grand}
-    # D drive：無 AC
+    # 佳聖：無 AC
     vat = rhu(budget_net * 0.05)
     gross = budget_net + vat
     return {"type": "ddrive", "net": budget_net, "vat": vat, "gross": gross}
@@ -621,7 +621,7 @@ def default_remarks(agency, sign_date=None, payment_note=""):
             "□是，文件編號__________________費用分攤明細__________________。",
             "□否，請於上CUE前完成電子流程送簽。",
         ]
-    # D drive：備註只有請款金額一行，由渲染器自組
+    # 佳聖：備註只有請款金額一行，由渲染器自組
     return []
 
 

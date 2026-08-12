@@ -56,9 +56,9 @@ def test_unit_prices():
 
 def test_list_prices():
     assert ac.get_agency_list_price("2008傳媒", "全家企頻", 15) == 1950
-    assert ac.get_agency_list_price("D drive", "全家企頻", 15) == 1300
-    assert ac.get_agency_list_price("D drive", "萬家福", 20) == 4000
-    assert ac.get_agency_list_price("D drive", "萬家福", 15) == 3400
+    assert ac.get_agency_list_price("佳聖", "全家企頻", 15) == 1300
+    assert ac.get_agency_list_price("佳聖", "萬家福", 20) == 4000
+    assert ac.get_agency_list_price("佳聖", "萬家福", 15) == 3400
     assert ac.get_agency_list_price("凱絡", "全家企頻", 15) == 1500
     assert ac.get_agency_list_price("凱絡", "萬家福", 15) == 3400
 
@@ -71,13 +71,13 @@ def test_distributions():
     # 2008 萬家福 413/21 → 19×7 + 20×14（餘數放最後）
     s = ac.dist_plain(413, 21, "end")
     assert sum(s) == 413 and s.count(20) == 14 and s.count(19) == 7 and s[0] == 19
-    # D drive 1440/14 → 103×12 + 102×2（餘數放最前）
+    # 佳聖 1440/14 → 103×12 + 102×2（餘數放最前）
     s = ac.dist_plain(1440, 14, "front")
     assert sum(s) == 1440 and s[:12] == [103] * 12 and s[12:] == [102, 102]
-    # D drive 576/14 → 42,42,41×12
+    # 佳聖 576/14 → 42,42,41×12
     s = ac.dist_plain(576, 14, "front")
     assert sum(s) == 576 and s[:2] == [42, 42] and s[2:] == [41] * 12
-    # D drive 210/20 → 11×10 + 10×10
+    # 佳聖 210/20 → 11×10 + 10×10
     s = ac.dist_plain(210, 20, "front")
     assert sum(s) == 210 and s[:10] == [11] * 10 and s[10:] == [10] * 10
     # 凱絡 量販 560/16 → 36×14 + 28 + 28
@@ -113,11 +113,11 @@ def test_A_2008_family():
 
 
 # ---------------------------------------------------------------------------
-# B. D drive／全家（回饋 40%、補償併主列、無 AC）
+# B. 佳聖／全家（回饋 40%、補償併主列、無 AC）
 # ---------------------------------------------------------------------------
 def test_B_ddrive_family():
     m = ac.build_agency_model(
-        "D drive", "客戶", "產品", "",
+        "佳聖", "客戶", "產品", "",
         date(2024, 6, 5), date(2024, 6, 18), 250000,
         _fam(seconds=15, rebate_pct=40), None, ac.COMP_MOVE50, date(2024, 5, 29), None,
     )
@@ -135,11 +135,11 @@ def test_B_ddrive_family():
 
 
 # ---------------------------------------------------------------------------
-# C. D drive／萬家福
+# C. 佳聖／萬家福
 # ---------------------------------------------------------------------------
 def test_C_ddrive_wjf():
     m = ac.build_agency_model(
-        "D drive", "客戶", "產品", "",
+        "佳聖", "客戶", "產品", "",
         date(2026, 8, 8), date(2026, 8, 27), 125000,
         None, _wjf(seconds=20), ac.COMP_NONE, date(2026, 8, 1), None,
     )
@@ -191,7 +191,7 @@ def test_D_carat_wjf():
 def test_E1_plan1():
     # 方案一：主 1440 + 補償 216；40%回饋 = round((1440+216)×0.4)=662
     m = ac.build_agency_model(
-        "D drive", "客戶", "產品", "",
+        "佳聖", "客戶", "產品", "",
         date(2026, 3, 1), date(2026, 3, 14), 250000,
         _fam(seconds=10, rebate_pct=40), None, ac.COMP_PLAN1, date(2026, 2, 22), None,
     )
@@ -205,7 +205,7 @@ def test_E1_plan1():
 def test_E2_plan2():
     # 方案二：全家主 1440 + 回饋 576；萬家福表(15秒) 量販 112、超市 192
     m = ac.build_agency_model(
-        "D drive", "客戶", "產品", "",
+        "佳聖", "客戶", "產品", "",
         date(2026, 3, 1), date(2026, 3, 14), 250000,
         _fam(seconds=10, rebate_pct=40), _wjf(enabled=False, seconds=15),
         ac.COMP_PLAN2, date(2026, 2, 22), None,

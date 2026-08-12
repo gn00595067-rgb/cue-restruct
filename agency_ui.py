@@ -34,7 +34,7 @@ def _fmt_money(v):
 
 def _logo_data_uri(agency):
     """回傳代理商 Logo 的 base64 data URI（供 HTML 預覽），無則 None。"""
-    path = {"2008傳媒": LOGO_2008, "D drive": LOGO_DDRIVE}.get(agency)
+    path = {"2008傳媒": LOGO_2008, "佳聖": LOGO_DDRIVE}.get(agency)
     if not path or not os.path.exists(path):
         return None
     with open(path, "rb") as f:
@@ -91,7 +91,7 @@ def _render_pricing_rules(agency):
             f"🎁 **2008 萬家福專屬**：量販檔次自動 +{int(ac.WJF_2008_REBATE_PCT)}% 回饋檔"
             f"（= 基礎檔次 + round({ac.WJF_2008_REBATE_PCT/100:.2f}×基礎檔次)），"
             "直接折進每日排檔、**不另立回饋列**；**實收 = 預算不變**。"
-            "超市(樂家康)跟著 ×720/420 放大。D drive / 凱絡 不適用（回饋另立列）。"
+            "超市(樂家康)跟著 ×720/420 放大。佳聖 / 凱絡 不適用（回饋另立列）。"
         )
 
     # 4. 費用區
@@ -99,7 +99,7 @@ def _render_pricing_rules(agency):
         fee = f"AC = net × {ac_default}%（預設）；稅 = (net+AC) × 5%；合計 = net+AC+稅"
     elif agency == "凱絡":
         fee = "AC 3% 預設免收（顯示「-」），填了才收；VAT = (net+AC) × 5%；合計 = net+AC+VAT"
-    else:  # D drive
+    else:  # 佳聖
         fee = "無 AC；VAT = net × 5%；合計 = net+VAT"
     st.markdown(f"**費用區**：{fee}")
 
@@ -107,7 +107,7 @@ def _render_pricing_rules(agency):
     st.info(
         "⚠️ 秒數係數三個例外：\n"
         "1. 凱絡「全家」是純線性（每秒 100），不照全家廣播係數\n"
-        "2. 2008「萬家福」套全家廣播係數（非家樂福），故比凱絡/D drive 便宜\n"
+        "2. 2008「萬家福」套全家廣播係數（非家樂福），故比凱絡/佳聖 便宜\n"
         "3. 基準秒不同：萬家福基準 20 秒、全家/2008 基準 30 秒"
     )
 
@@ -200,7 +200,7 @@ def _fee_html(f):
 # =============================================================================
 def render_agency_cue(sales_map=None):
     st.title("📺 代理商 CUE 表生成器")
-    st.caption("三家配合代理商專用 CUE（2008傳媒／D drive／凱絡）。平台：全家企頻、萬家福。此模式暫不支援 Ragic 上傳。")
+    st.caption("三家配合代理商專用 CUE（2008傳媒／佳聖／凱絡）。平台：全家企頻、萬家福。此模式暫不支援 Ragic 上傳。")
 
     can_download_excel = st.session_state.get("is_supervisor", False) or st.session_state.get("allow_sales_excel_download", True)
     can_download_pdf = st.session_state.get("is_supervisor", False) or st.session_state.get("allow_sales_pdf_download", True)
@@ -313,7 +313,7 @@ def render_agency_cue(sales_map=None):
         ac_free = st.checkbox("A.C 3% 免收（顯示「-」）", value=True, key="ag_ac_free")
         ac_pct = None if ac_free else 3.0
     else:
-        st.caption("D drive 無 AC 欄位。")
+        st.caption("佳聖 無 AC 欄位。")
 
     sign_date = None
     if agency == "凱絡":

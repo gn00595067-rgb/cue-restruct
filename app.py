@@ -770,7 +770,7 @@ def main():
         except ValueError:
             mode_idx = 0
         cue_mode = st.radio("製作模式", mode_options, index=mode_idx, key="cue_mode", horizontal=True,
-                            help="年約季約細CUE：以已知檔次與實收分配至各波段，每波段獨立存檔。代理商CUE：2008傳媒／D drive／凱絡專用格式。")
+                            help="年約季約細CUE：以已知檔次與實收分配至各波段，每波段獨立存檔。代理商CUE：2008傳媒／佳聖／凱絡專用格式。")
 
         if cue_mode == "代理商CUE":
             render_agency_cue(SALES_MAP)

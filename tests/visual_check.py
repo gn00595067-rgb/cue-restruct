@@ -68,9 +68,9 @@ def check():
     ok(_has_yellow(ws, "M9") or _has_yellow(ws, "M10"), "週末日期/星期黃底")
     ok(any("※" in str(v) for v in cv.values()), "備註 ※ 原文")
 
-    # ---- C. D drive 萬家福 ----
-    print("[D drive 萬家福] 2026/08/08~08/27 12.5萬 20秒")
-    m = ac.build_agency_model("D drive", "統一企業-飼料部", "元氣御選", "",
+    # ---- C. 佳聖 萬家福 ----
+    print("[佳聖 萬家福] 2026/08/08~08/27 12.5萬 20秒")
+    m = ac.build_agency_model("佳聖", "統一企業-飼料部", "元氣御選", "",
                               date(2026, 8, 8), date(2026, 8, 27), 125000,
                               None, _wjf(seconds=20), ac.COMP_NONE, date(2026, 8, 1), None)
     b = generate_agency_excel(m)

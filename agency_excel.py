@@ -2,11 +2,11 @@
 """
 代理商 CUE Excel 渲染模組 (Agency Cue Excel Renderer)
 
-以 openpyxl 精緻復刻三種代理商版型（2008傳媒 / D drive / 凱絡），每平台一個工作表。
+以 openpyxl 精緻復刻三種代理商版型（2008傳媒 / 佳聖 / 凱絡），每平台一個工作表。
 字級、列高、框線層次、底色、格式代碼、圖片錨點、頁首頁尾字串皆逐格對齊原始範例檔實測值。
 
 - 字型一律「微軟正黑體」；版面靠 fitToWidth 縮放，不靠縮小字級塞版。
-- 金額：2008 與凱絡三層價用會計 $ 格式；D drive 金額與凱絡費用區用無 $ 純數字。
+- 金額：2008 與凱絡三層價用會計 $ 格式；佳聖 金額與凱絡費用區用無 $ 純數字。
 - 為求 LibreOffice/Excel 轉 PDF 穩定，數字一律寫入計算後實值（非公式）。
 """
 import os
@@ -27,11 +27,11 @@ FONT = config.FONT_MAIN
 
 # 數字格式
 ACCT = '_("$"* #,##0_);_("$"* \\(#,##0\\);_("$"* "-"??_);_(@_)'   # 會計 $（2008、凱絡三層價）
-NUM = "#,##0_);[Red](#,##0)"          # 無 $ 純數字（D drive 金額、凱絡費用）
+NUM = "#,##0_);[Red](#,##0)"          # 無 $ 純數字（佳聖 金額、凱絡費用）
 DAY_FMT = "0_ "                        # 每日檔次（尾隨空格）
 DAY_RED = "#,##0_);[Red](#,##0)"      # 2008 每日合計
 SUM_FMT = "#,##0_);(#,##0)"           # 2008 合計 F
-MATERIAL_FMT = 'm"月"d"日"'            # D drive 素材日期
+MATERIAL_FMT = 'm"月"d"日"'            # 佳聖 素材日期
 CARAT_H_FMT = "0_);[Red]\\(0\\)"      # 凱絡 檔數
 CN_WD = "一二三四五六日"
 EN_WD = "MTWTFSS"
@@ -361,7 +361,7 @@ def _render_2008(wb, sheet, model, made_date):
 
 
 # =============================================================================
-# D drive 版型
+# 佳聖 版型
 # =============================================================================
 def _render_ddrive(wb, sheet, model, made_date):
     days = (model["end_date"] - model["start_date"]).days + 1
@@ -672,7 +672,7 @@ def generate_agency_excel(model, made_date=None):
     for sheet in model["sheets"]:
         if agency == "2008傳媒":
             _render_2008(wb, sheet, model, made_date)
-        elif agency == "D drive":
+        elif agency == "佳聖":
             _render_ddrive(wb, sheet, model, made_date)
         elif agency == "凱絡":
             _render_carat(wb, sheet, model, made_date)
