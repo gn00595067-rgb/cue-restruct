@@ -34,7 +34,8 @@ COMP_PLAN1 = "方案一：15%媒體價值換全家檔次"
 COMP_PLAN2 = "方案二：20%媒體價值換萬家福檔次"
 COMP_NONE = "無補償"
 
-COMP_OPTIONS = [COMP_MOVE50, COMP_PLAN1, COMP_PLAN2, COMP_NONE]
+# 顯示順序：原50%放最下面（仍為預設，UI 以 index 指向它）
+COMP_OPTIONS = [COMP_PLAN1, COMP_PLAN2, COMP_NONE, COMP_MOVE50]
 
 # 2008 萬家福專屬：固定 10% 回饋檔直接折進每日排檔（不另立回饋列），實收不變。
 # 其他兩家（佳聖 / 凱絡）照原規則（回饋另立列）。
