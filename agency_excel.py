@@ -479,12 +479,19 @@ def _render_ddrive(wb, sheet, model, made_date):
     # 框線：外框 medium、內線 thin；小計底 medium
     _box(ws, 9, 1, subtotal_row, last_col, edge="medium", inner="thin")
 
-    # 備註（左）＋ 請款
+    # 備註（左）＋ 請款；多月份請款每月一列往下排，避免長文字擠到右側費用欄
     br = subtotal_row + 2
     ws.row_dimensions[br].height = 52.7
     _set(ws, f"A{br}", "備註：", size=22, align="left")
-    _set(ws, f"A{br + 1}", model.get("payment_note", ""), size=22, align="left")
-    _merge(ws, f"A{br + 1}:E{br + 1}")
+    pn = model.get("payment_note", "")
+    pay_parts = pn.split("、") if pn else [""]
+    for idx, part in enumerate(pay_parts):
+        rr = br + 1 + idx
+        if idx > 0:
+            ws.row_dimensions[rr].height = 40
+            part = "　　　　" + part  # 續月縮排，對齊首列金額
+        _set(ws, f"A{rr}", part, size=22, align="left", wrap=True)
+        _merge(ws, f"A{rr}:E{rr}")
 
     # 費用框（F 標籤 / H 值，G 留空，無框線，無 $）
     f = sheet["fees"]
