@@ -170,8 +170,9 @@ def test_D_carat_wjf():
     reb_s = _row(sh, ac.KIND_SUPER_REBATE)
     assert mag["spots"] == 560 and mag["schedule"][:14] == [36] * 14 and mag["schedule"][14:] == [28, 28]
     assert sup["spots"] == 960 and sup["schedule"][:14] == [62] * 14 and sup["schedule"][14:] == [46, 46]
-    assert reb["spots"] == 56 and reb["schedule"] is None
-    assert reb_s["spots"] == 96 and reb_s["schedule"] is None
+    # 凱絡回饋改逐日平均鋪滿（不再合併顯示）
+    assert reb["spots"] == 56 and reb["schedule"] == [4] * 8 + [3] * 8
+    assert reb_s["spots"] == 96 and reb_s["schedule"] == [6] * 16
     assert mag["market_per"] == 2720 and mag["uni_per"] == 2550
     assert mag["uni_total"] == 1_428_000
     assert sup["uni_total"] == 2_448_000

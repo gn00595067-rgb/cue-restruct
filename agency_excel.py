@@ -513,7 +513,7 @@ def _render_carat(wb, sheet, model, made_date):
     for k, v in widths.items():
         ws.column_dimensions[k].width = v
     for i in range(days):
-        ws.column_dimensions[get_column_letter(DAY0 + i)].width = 6.5
+        ws.column_dimensions[get_column_letter(DAY0 + i)].width = 8.6
     last_col = DAY0 + days - 1
 
     for r in (1, 2, 3):
@@ -535,8 +535,8 @@ def _render_carat(wb, sheet, model, made_date):
 
     # 欄位表頭 5~7
     heads = [("A", "媒體別"), ("B", "地區"), ("C", "時段"), ("D", "素材"),
-             ("E", "定價(檔/Net)"), ("F", "市場價(檔/Net)"), ("G", "統一價(檔/Net)"),
-             ("H", "檔數"), ("I", "總價"), ("J", "專案價(Net)")]
+             ("E", "定價\n(檔/Net)"), ("F", "市場價\n(檔/Net)"), ("G", "統一價\n(檔/Net)"),
+             ("H", "檔數"), ("I", "總價"), ("J", "專案價\n(Net)")]
     for col, txt in heads:
         _set(ws, f"{col}5", txt, size=12, bold=True, wrap=True)
         _merge(ws, f"{col}5:{col}7")

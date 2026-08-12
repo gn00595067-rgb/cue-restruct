@@ -320,10 +320,8 @@ def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
                 list_per=list_per, list_total=list_per * reb, net_display=NET_REBATE,
             ))
         else:
-            if agency == "凱絡":
-                reb_sch = None  # 凱絡回饋列合併顯示
-            else:
-                reb_sch = dist_plain(reb, days, "front")  # 佳聖 逐日排檔
+            # 凱絡／佳聖 回饋皆逐日平均鋪滿（對齊範本，凱絡不再合併顯示）
+            reb_sch = dist_plain(reb, days, "front")
             market_per = rhu(list_per * config.CARAT_MARKET_RATIO)
             uni_per = rhu(list_per * config.CARAT_UNI_RATIO)
             rows.append(_new_row(
@@ -424,8 +422,9 @@ def _build_wjf_sheet(agency, sec, budget, days, rebate_pct, mag_override,
         reb_mag = rhu(rebate_pct / 100.0 * mag_spots)
         reb_super = super_spots_from_mag(reb_mag)
         logs.append(f"【萬家福】專案回饋：量販={rebate_pct}%×{mag_spots}={reb_mag}、超市={reb_super}")
-        reb_sch = None if agency == "凱絡" else dist_plain(reb_mag, days, "front")
-        reb_super_sch = None if agency == "凱絡" else dist_plain(reb_super, days, "front")
+        # 凱絡／佳聖 回饋皆逐日平均鋪滿（對齊範本，凱絡不再合併顯示）
+        reb_sch = dist_plain(reb_mag, days, "front")
+        reb_super_sch = dist_plain(reb_super, days, "front")
         rows.append(_new_row(
             KIND_REBATE, mag_label, mag_region, mag_daypart, sec, reb_mag, reb_sch,
             list_per=list_per, list_total=list_per * reb_mag,
