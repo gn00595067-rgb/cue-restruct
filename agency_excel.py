@@ -213,6 +213,8 @@ def _render_2008(wb, sheet, model, made_date):
     for i in range(days):
         ws.column_dimensions[get_column_letter(DAY0 + i)].width = 8.9
     last_col = DAY0 + days - 1
+    # 最後一欄（含跨月的 Sep）稍加寬，避免右側外框線被裁切遮住
+    ws.column_dimensions[get_column_letter(last_col)].width = 11.5
 
     for r in range(1, 8):
         ws.row_dimensions[r].height = 40
@@ -278,7 +280,11 @@ def _render_2008(wb, sheet, model, made_date):
         _set(ws, f"A{gtop}", main["media_label"], size=24, wrap=True)
         _set(ws, f"B{gtop}", main["region_label"], size=24)
         _set(ws, f"C{gtop}", main["daypart"], size=24)
-        _set(ws, f"D{gtop}", main["list_total"], size=24, fmt=ACCT)
+        # 樂家康(超市)定價比照合計欄，顯示「計價於量販」而非 $0
+        if main["kind"] in (ac.KIND_SUPER, ac.KIND_SUPER_REBATE):
+            _set(ws, f"D{gtop}", ac.NET_ON_MAG, size=24)
+        else:
+            _set(ws, f"D{gtop}", main["list_total"], size=24, fmt=ACCT)
         _set(ws, f"E{gtop}", f"{sec}秒", size=24)
         _net_cell(ws, f"G{gtop}", main["net_display"], size=24)
         _set(ws, f"H{gtop}", _mat_str(main["material"]), size=24, wrap=True)
@@ -291,18 +297,21 @@ def _render_2008(wb, sheet, model, made_date):
 
     data_bot = r - 1
 
-    # 媒體型態/地區/播出時段/素材：延伸合併蓋住「延續列」(media_label 為空的補償/回饋列)，
+    # 媒體型態/地區/播出時段：延伸合併蓋住「延續列」(media_label 為空的補償/回饋列)，
     # 使左側區塊整齊為單一高格。萬家福表每列各有媒體名，不會被併。
     blk_top = None
     for rr, row in data_rows:
         if row["media_label"]:
             if blk_top is not None and rr - 1 > blk_top:
-                for col in ("A", "B", "C", "H"):
+                for col in ("A", "B", "C"):
                     _merge(ws, f"{col}{blk_top}:{col}{rr - 1}")
             blk_top = rr
     if blk_top is not None and data_bot > blk_top:
-        for col in ("A", "B", "C", "H"):
+        for col in ("A", "B", "C"):
             _merge(ws, f"{col}{blk_top}:{col}{data_bot}")
+    # 素材提供時間（H）：整張表同一素材日，整塊合併蓋住所有資料列（含量販→樂家康）
+    if data_bot > data_top:
+        _merge(ws, f"H{data_top}:H{data_bot}")
     # 合計列
     ws.row_dimensions[r].height = 80.15
     _set(ws, f"B{r}", "合計", size=24)

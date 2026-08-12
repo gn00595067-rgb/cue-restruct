@@ -85,6 +85,15 @@ def _render_pricing_rules(agency):
         f"- 檔次 = round(該平台預算 ÷ 單檔實作價)"
     )
 
+    # 3b. 2008 萬家福專屬回饋規則
+    if agency == "2008傳媒":
+        st.warning(
+            f"🎁 **2008 萬家福專屬**：量販檔次自動 +{int(ac.WJF_2008_REBATE_PCT)}% 回饋檔"
+            f"（= 基礎檔次 + round({ac.WJF_2008_REBATE_PCT/100:.2f}×基礎檔次)），"
+            "直接折進每日排檔、**不另立回饋列**；**實收 = 預算不變**。"
+            "超市(樂家康)跟著 ×720/420 放大。D drive / 凱絡 不適用（回饋另立列）。"
+        )
+
     # 4. 費用區
     if agency == "2008傳媒":
         fee = f"AC = net × {ac_default}%（預設）；稅 = (net+AC) × 5%；合計 = net+AC+稅"

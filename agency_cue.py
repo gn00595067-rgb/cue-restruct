@@ -36,6 +36,10 @@ COMP_NONE = "無補償"
 
 COMP_OPTIONS = [COMP_MOVE50, COMP_PLAN1, COMP_PLAN2, COMP_NONE]
 
+# 2008 萬家福專屬：固定 10% 回饋檔直接折進每日排檔（不另立回饋列），實收不變。
+# 其他兩家（D drive / 凱絡）照原規則（回饋另立列）。
+WJF_2008_REBATE_PCT = 10.0
+
 # row.kind
 KIND_MAIN = "main"
 KIND_COMP = "comp"
@@ -352,9 +356,17 @@ def _build_wjf_sheet(agency, sec, budget, days, rebate_pct, mag_override,
         mag_spots = mag_override if mag_override else 0
         logs.append(f"【萬家福】整波專案回饋：量販手動={mag_spots}")
     else:
-        mag_spots = mag_override if mag_override else rhu(budget / unit_net)
+        mag_base = mag_override if mag_override else rhu(budget / unit_net)
         logs.append(f"【萬家福】量販單檔實作價({sec}秒)=250000/420/20×{sec}={unit_net:.2f}")
-        logs.append(f"【萬家福】量販檔次=round({budget}/{unit_net:.2f})={mag_spots}")
+        logs.append(f"【萬家福】量販基礎檔次=round({budget}/{unit_net:.2f})={mag_base}")
+        # 2008 專屬：固定 +10% 回饋檔直接折進每日排檔（不另立回饋列），實收不變
+        if agency == "2008傳媒":
+            bonus = rhu(WJF_2008_REBATE_PCT / 100.0 * mag_base)
+            mag_spots = mag_base + bonus
+            logs.append(f"【萬家福】2008專屬：+{int(WJF_2008_REBATE_PCT)}%回饋檔折進每日 "
+                        f"= {mag_base}+round({WJF_2008_REBATE_PCT/100:.2f}×{mag_base})={mag_spots}（實收不變）")
+        else:
+            mag_spots = mag_base
     super_spots = super_spots_from_mag(mag_spots)
     logs.append(f"【萬家福】超市檔次={mag_spots}×720/420={super_spots}")
 
@@ -407,8 +419,8 @@ def _build_wjf_sheet(agency, sec, budget, days, rebate_pct, mag_override,
             net_display=NET_ON_MAG,
         ))
 
-    # 專案回饋（加贈）
-    if rebate_pct and rebate_pct > 0 and not is_rebate_wave:
+    # 專案回饋（加贈）。2008 萬家福已把 10% 折進主檔每日排檔，不再另立回饋列。
+    if rebate_pct and rebate_pct > 0 and not is_rebate_wave and agency != "2008傳媒":
         reb_mag = rhu(rebate_pct / 100.0 * mag_spots)
         reb_super = super_spots_from_mag(reb_mag)
         logs.append(f"【萬家福】專案回饋：量販={rebate_pct}%×{mag_spots}={reb_mag}、超市={reb_super}")
