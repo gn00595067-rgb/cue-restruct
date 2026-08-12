@@ -253,12 +253,14 @@ def _render_2008(wb, sheet, model, made_date):
     groups = _group_main_comp(sheet["rows"])
     data_top = r
     schedule_rows = []
+    data_rows = []  # [(row_number, row_dict)]：供左側欄延伸合併判斷
     total_spots = total_list = total_net = 0
     for grp in groups:
         gtop, gbot = r, r + len(grp) - 1
         main = grp[0]
         for k, row in enumerate(grp):
             rr = r + k
+            data_rows.append((rr, row))
             ws.row_dimensions[rr].height = 105.65 if row["kind"] == ac.KIND_MAIN else 93.75
             _set(ws, f"F{rr}", row["spots"], size=24, fmt=DAY_FMT)
             total_spots += row["spots"]
@@ -281,12 +283,26 @@ def _render_2008(wb, sheet, model, made_date):
         _net_cell(ws, f"G{gtop}", main["net_display"], size=24)
         _set(ws, f"H{gtop}", _mat_str(main["material"]), size=24, wrap=True)
         total_list += main["list_total"]
+        # 定價/單位/合計：僅在同組（主+補償）內合併
         if gbot > gtop:
-            for col in ("A", "B", "C", "D", "E", "G", "H"):
+            for col in ("D", "E", "G"):
                 _merge(ws, f"{col}{gtop}:{col}{gbot}")
         r = gbot + 1
 
     data_bot = r - 1
+
+    # 媒體型態/地區/播出時段/素材：延伸合併蓋住「延續列」(media_label 為空的補償/回饋列)，
+    # 使左側區塊整齊為單一高格。萬家福表每列各有媒體名，不會被併。
+    blk_top = None
+    for rr, row in data_rows:
+        if row["media_label"]:
+            if blk_top is not None and rr - 1 > blk_top:
+                for col in ("A", "B", "C", "H"):
+                    _merge(ws, f"{col}{blk_top}:{col}{rr - 1}")
+            blk_top = rr
+    if blk_top is not None and data_bot > blk_top:
+        for col in ("A", "B", "C", "H"):
+            _merge(ws, f"{col}{blk_top}:{col}{data_bot}")
     # 合計列
     ws.row_dimensions[r].height = 80.15
     _set(ws, f"B{r}", "合計", size=24)
