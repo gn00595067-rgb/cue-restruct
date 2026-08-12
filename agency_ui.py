@@ -240,8 +240,8 @@ def render_agency_cue(sales_map=None):
 
     # 凌晨補償
     comp_mode = st.radio("凌晨補償方式（2026/03 起全家凌晨停播）", ac.COMP_OPTIONS,
-                         index=ac.COMP_OPTIONS.index(ac.COMP_MOVE50), key="ag_comp",
-                         help="每次製表可選；預設為原50%檔次併入主時段（列於最下）。")
+                         index=ac.COMP_OPTIONS.index(ac.COMP_PLAN1), key="ag_comp",
+                         help="每次製表可選；預設為方案一（15%媒體價值換全家檔次）。")
 
     st.markdown("---")
     st.markdown("#### 平台設定")
