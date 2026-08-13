@@ -648,31 +648,44 @@ def _render_carat(wb, sheet, model, made_date):
             _edge(ws, f"I{rr}", top="thin", bottom="double")
             _edge(ws, f"J{rr}", top="thin", bottom="double")
 
-    # 簽核列（四個分開儲存格）
-    sr = data_bot + 2 + len(fee_lines)
-    _set(ws, f"A{sr}", "部主管：_________ ", size=12, align="left")
-    _set(ws, f"D{sr}", "課主管：_________ ", size=12, align="left")
-    _set(ws, f"I{sr}", "媒體窗口：_________", size=12, align="left")
-    _set(ws, f"O{sr}", "承辦PM：_________", size=12, align="left")
+    fee_bottom = data_bot + len(fee_lines)
 
-    # 備註（A 欄「備 註」直向合併、medium 外框；內容 B 欄起）
-    # 每條備註之間插入一列空白間距，避免文字擁擠（YM 回饋）。
+    # 簽核帶：獨立 medium 方框、上下留白，四個簽核欄位垂直置中（不貼上下邊線，並保留簽章空間）
+    sig_top = fee_bottom + 2                # 與費用區間隔一列
+    sig_bottom = sig_top + 2               # 三列高，給簽章與上下留白
+    for rr in range(sig_top, sig_bottom + 1):
+        ws.row_dimensions[rr].height = 22
+    sig_mid = sig_top + 1
+    _set(ws, f"A{sig_mid}", "部主管：_________ ", size=12, align="left", valign="center")
+    _set(ws, f"D{sig_mid}", "課主管：_________ ", size=12, align="left", valign="center")
+    _set(ws, f"I{sig_mid}", "媒體窗口：_________", size=12, align="left", valign="center")
+    _set(ws, f"O{sig_mid}", "承辦PM：_________", size=12, align="left", valign="center")
+    _box(ws, sig_top, 1, sig_bottom, tot_col, edge="medium", inner=None)
+
+    # 備註：medium 外框；上下各留一列 padding 使文字不貼邊線，內容列之間再空一列。
+    # A 欄「備／註」二字直向分布（比照原始範本）。
     rmk = model.get("remarks", [])
-    rk_top = sr + 1
+    rk_top = sig_bottom + 1
     lines_n = max(1, len(rmk))
-    row_span = lines_n * 2 - 1  # 內容列與空白列交錯，末列不留空白
+    inner_span = lines_n * 2 - 1           # 內容列與空白列交錯，末列不留空白
+    row_span = 1 + inner_span + 1          # 頂／底 padding 各一列
     rk_bot = rk_top + row_span - 1
-    _set(ws, f"A{rk_top}", "備     註", size=12, bold=True, align="center", valign="center", wrap=True)
+    ws.row_dimensions[rk_top].height = 8   # 頂部留白
+    ws.row_dimensions[rk_bot].height = 8   # 底部留白
+    a = ws[f"A{rk_top}"]
+    a.value = "備\n註"
+    a.font = Font(name=FONT, size=12, bold=True)
+    a.alignment = Alignment(horizontal="center", vertical="distributed", wrap_text=True)
     if row_span > 1:
         _merge(ws, f"A{rk_top}:A{rk_bot}")
     for i, line in enumerate(rmk):
-        rr = rk_top + i * 2
-        ws.row_dimensions[rr].height = 20      # 內容列略高，文字不擁擠
+        rr = rk_top + 1 + i * 2            # +1 跳過頂部 padding 列
+        ws.row_dimensions[rr].height = 20  # 內容列高，文字垂直置中不貼邊線
         _set(ws, f"B{rr}", line, size=12, align="left", valign="center", wrap=True)
-        _merge(ws, f"B{rr}:{get_column_letter(last_col)}{rr}")
+        _merge(ws, f"B{rr}:{get_column_letter(tot_col)}{rr}")
         if i < len(rmk) - 1:
-            ws.row_dimensions[rr + 1].height = 18  # 空白間距列（整整一行空白）
-    _box(ws, rk_top, 1, rk_bot, last_col, edge="medium", inner=None)
+            ws.row_dimensions[rr + 1].height = 16  # 內容列之間的空白間距列
+    _box(ws, rk_top, 1, rk_bot, tot_col, edge="medium", inner=None)
     return ws
 
 
