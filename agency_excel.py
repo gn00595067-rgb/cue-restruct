@@ -368,7 +368,8 @@ def _render_ddrive(wb, sheet, model, made_date):
     start_dt = model["start_date"]
     sec = sheet["seconds"]
     ws = wb.create_sheet(title=_sheet_name(model, sheet))
-    _page(ws, margins=(0.0, 0.0, 0.4, 0.2))
+    # 左邊留白，列印 PDF 時左側不會切齊紙邊（YM 回饋）
+    _page(ws, margins=(0.6, 0.2, 0.4, 0.2))
 
     # 列印頁首/頁尾
     ws.oddHeader.center.text = "佳聖媒體  戶外媒體排期表"
@@ -513,11 +514,13 @@ def _render_carat(wb, sheet, model, made_date):
     start_dt = model["start_date"]
     sec = sheet["seconds"]
     ws = wb.create_sheet(title=_sheet_name(model, sheet))
-    _page(ws, margins=(0.0, 0.0, 0.3, 0.1))
+    # 左邊留白，列印 PDF 時左側不會切齊紙邊（YM 回饋）
+    _page(ws, margins=(0.6, 0.2, 0.3, 0.2))
 
     DAY0 = 11
+    # I(總價)加寬到 17：左邊留白後 fitToWidth 會縮版，14.5 會讓 7 位數總價顯示 ######
     widths = {"A": 21.5, "B": 18.7, "C": 15.7, "D": 9.5, "E": 11.3, "F": 11.5,
-              "G": 11.5, "H": 10.5, "I": 14.5, "J": 14.1}
+              "G": 11.5, "H": 10.5, "I": 17.0, "J": 14.1}
     for k, v in widths.items():
         ws.column_dimensions[k].width = v
     for i in range(days):
@@ -653,17 +656,22 @@ def _render_carat(wb, sheet, model, made_date):
     _set(ws, f"O{sr}", "承辦PM：_________", size=12, align="left")
 
     # 備註（A 欄「備 註」直向合併、medium 外框；內容 B 欄起）
+    # 每條備註之間插入一列空白間距，避免文字擁擠（YM 回饋）。
     rmk = model.get("remarks", [])
     rk_top = sr + 1
-    n = max(1, len(rmk))
+    lines_n = max(1, len(rmk))
+    row_span = lines_n * 2 - 1  # 內容列與空白列交錯，末列不留空白
+    rk_bot = rk_top + row_span - 1
     _set(ws, f"A{rk_top}", "備     註", size=12, bold=True, align="center", valign="center", wrap=True)
-    if n > 1:
-        _merge(ws, f"A{rk_top}:A{rk_top + n - 1}")
+    if row_span > 1:
+        _merge(ws, f"A{rk_top}:A{rk_bot}")
     for i, line in enumerate(rmk):
-        rr = rk_top + i
-        _set(ws, f"B{rr}", line, size=12, align="left", wrap=True)
+        rr = rk_top + i * 2
+        _set(ws, f"B{rr}", line, size=12, align="left", valign="center", wrap=True)
         _merge(ws, f"B{rr}:{get_column_letter(last_col)}{rr}")
-    _box(ws, rk_top, 1, rk_top + n - 1, last_col, edge="medium", inner=None)
+        if i < len(rmk) - 1:
+            ws.row_dimensions[rr + 1].height = 12  # 空白間距列
+    _box(ws, rk_top, 1, rk_bot, last_col, edge="medium", inner=None)
     return ws
 
 
