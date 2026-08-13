@@ -667,10 +667,11 @@ def _render_carat(wb, sheet, model, made_date):
         _merge(ws, f"A{rk_top}:A{rk_bot}")
     for i, line in enumerate(rmk):
         rr = rk_top + i * 2
+        ws.row_dimensions[rr].height = 20      # 內容列略高，文字不擁擠
         _set(ws, f"B{rr}", line, size=12, align="left", valign="center", wrap=True)
         _merge(ws, f"B{rr}:{get_column_letter(last_col)}{rr}")
         if i < len(rmk) - 1:
-            ws.row_dimensions[rr + 1].height = 12  # 空白間距列
+            ws.row_dimensions[rr + 1].height = 18  # 空白間距列（整整一行空白）
     _box(ws, rk_top, 1, rk_bot, last_col, edge="medium", inner=None)
     return ws
 
