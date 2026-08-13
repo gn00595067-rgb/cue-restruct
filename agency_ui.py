@@ -460,13 +460,13 @@ def _render_agency_upload(model, xlsx_bytes, xlsx_name, form_inputs):
 
                 details = ac.build_agency_ragic_details(model, form_inputs)
                 sign_deadline = form_inputs.get("sign_date") or ""
+                # 只寫語意相符的欄位；代理商名/campaign 等無對應欄位者一律留在備註(details)，
+                # 不硬塞進 sales（業務）或 format（報表格式）。
                 data_payload = {
                     RAGIC_MAP["client"]:     client_name,
                     RAGIC_MAP["product"]:    product_name,
                     RAGIC_MAP["budget_raw"]: ac.agency_net_total(model),
                     RAGIC_MAP["budget_fin"]: ac.agency_grand_total(model),
-                    RAGIC_MAP["format"]:     f"代理商-{model['agency']}",
-                    RAGIC_MAP["sales"]:      model["agency"],
                     RAGIC_MAP["date_start"]: model["start_date"].isoformat(),
                     RAGIC_MAP["date_end"]:   model["end_date"].isoformat(),
                     RAGIC_MAP["date_sign"]:  sign_deadline,
@@ -532,7 +532,8 @@ def _render_agency_search():
             r = records[idx]
             c = r.get(RAGIC_MAP["client"], "")
             p = r.get(RAGIC_MAP["product"], "")
-            agy = r.get(RAGIC_MAP["sales"], "")
+            # 代理商名沒有專屬欄位，改從備註(details)的 [AGENCY_EXT] 解析
+            agy = (ac.parse_agency_ext(r.get(RAGIC_MAP["details"], "")) or {}).get("agency", "")
             d = (r.get(RAGIC_MAP["date_start"], "") or "").split(" ")[0] or "無日期"
             cue = r.get(RAGIC_FIELD_SERIAL, "")
             return f"📅 {d} | 🏢 {c} - 📦 {p} [{agy}] | 🔢 {cue}"
