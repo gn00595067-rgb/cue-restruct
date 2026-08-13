@@ -4,7 +4,7 @@
 
 Streamlit 製作模式「代理商CUE」：輸入表單 → build_agency_model →
 運算邏輯面板、HTML 預覽（components.html）、下載 Excel、產生/下載 PDF。
-此模式暫不支援 Ragic 上傳。
+支援上傳 / 搜尋 Ragic（與一般 CUE 共用同一張表單）。
 """
 import os
 import base64
@@ -14,10 +14,12 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 import config
+from config import RAGIC_MAP, RAGIC_FIELD_SERIAL
 import agency_cue as ac
 from agency_excel import generate_agency_excel, LOGO_2008, LOGO_DDRIVE
 from data_loader import load_agency_pricing_from_cloud
 from pdf_converter import xlsx_bytes_to_pdf_bytes
+from ragic_api import upload_to_ragic, search_ragic_records, _ragic_number
 from utils import safe_filename, html_escape
 
 SEC_OPTIONS = [5, 10, 15, 20, 30]
@@ -200,7 +202,10 @@ def _fee_html(f):
 # =============================================================================
 def render_agency_cue(sales_map=None):
     st.title("📺 代理商 CUE 表生成器")
-    st.caption("三家配合代理商專用 CUE（2008傳媒／佳聖／凱絡）。平台：全家企頻、萬家福。此模式暫不支援 Ragic 上傳。")
+    st.caption("三家配合代理商專用 CUE（2008傳媒／佳聖／凱絡）。平台：全家企頻、萬家福。可上傳至 Ragic 並搜尋已上傳案子。")
+
+    # --- 搜尋 / 載入已上傳的代理商案子（與一般 CUE 共用同一張 Ragic 表單）---
+    _render_agency_search()
 
     can_download_excel = st.session_state.get("is_supervisor", False) or st.session_state.get("allow_sales_excel_download", True)
     can_download_pdf = st.session_state.get("is_supervisor", False) or st.session_state.get("allow_sales_pdf_download", True)
@@ -391,4 +396,226 @@ def render_agency_cue(sales_map=None):
         else:
             st.button("🧾 產生 PDF（需權限）", disabled=True, use_container_width=True)
 
-    st.caption("※ 代理商 CUE 模式暫不支援 Ragic 上傳。")
+    # --- 上傳至 Ragic（與一般 CUE 共用同一張表單）---
+    form_inputs = {
+        "agency": agency,
+        "client_name": client_name,
+        "product_name": product_name,
+        "campaign": campaign,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "material_due": material_due.isoformat(),
+        "total_budget": int(total_budget),
+        "comp_mode": comp_mode,
+        "fam_cfg": fam_cfg,
+        "wjf_cfg": wjf_cfg,
+        "ac_pct": ac_pct,
+        "ac_free": bool(st.session_state.get("ag_ac_free", False)),
+        "sign_date": sign_date.isoformat() if sign_date else None,
+        "remarks": remarks,
+        "payment_note": payment_note,
+    }
+    _render_agency_upload(model, xlsx_bytes, xlsx_name, form_inputs)
+
+
+# =============================================================================
+# Ragic 上傳
+# =============================================================================
+def _render_agency_upload(model, xlsx_bytes, xlsx_name, form_inputs):
+    """代理商 CUE 上傳至 Ragic（含二次確認、自動附 Excel+PDF、回查流水號）。"""
+    st.markdown("---")
+    st.markdown("#### ☁️ 上傳至 Ragic")
+    st.caption("上傳後會存進與一般 CUE 同一張 Ragic 表單，並自動附上 Excel 與 PDF；可於本頁上方「搜尋舊案」再載入。")
+
+    if not st.session_state.get("ragic_key"):
+        st.info("尚未設定 Ragic API Key（於一般 CUE 頁面的『Ragic 連線設定』設定）。")
+        return
+
+    # 上傳成功訊息（不會一閃即逝）
+    if "ag_upload_success_msg" in st.session_state:
+        st.success(st.session_state["ag_upload_success_msg"])
+        if st.button("👌 我知道了（清除訊息）", key="ag_upload_msg_clear"):
+            del st.session_state["ag_upload_success_msg"]
+            st.rerun()
+
+    client_name = model["client_name"]
+    product_name = model["product_name"]
+
+    if not st.session_state.get("ag_ragic_confirm"):
+        if st.button("🚀 上傳資料至 Ragic", type="primary", key="ag_ragic_upload_btn"):
+            st.session_state["ag_ragic_confirm"] = True
+            st.rerun()
+        return
+
+    st.warning(f"即將上傳【{model['agency']}｜{client_name} - {product_name}】至 Ragic，請確認？")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("❌ 取消", key="ag_ragic_cancel"):
+            st.session_state["ag_ragic_confirm"] = False
+            st.rerun()
+    with c2:
+        if st.button("✅ 確認上傳", key="ag_ragic_confirm_btn"):
+            with st.spinner("正在產生 PDF 並上傳資料與檔案..."):
+                pdf_bytes, _method, pdf_err = xlsx_bytes_to_pdf_bytes(xlsx_bytes)
+
+                details = ac.build_agency_ragic_details(model, form_inputs)
+                sign_deadline = form_inputs.get("sign_date") or ""
+                data_payload = {
+                    RAGIC_MAP["client"]:     client_name,
+                    RAGIC_MAP["product"]:    product_name,
+                    RAGIC_MAP["budget_raw"]: ac.agency_net_total(model),
+                    RAGIC_MAP["budget_fin"]: ac.agency_grand_total(model),
+                    RAGIC_MAP["format"]:     f"代理商-{model['agency']}",
+                    RAGIC_MAP["sales"]:      model["agency"],
+                    RAGIC_MAP["date_start"]: model["start_date"].isoformat(),
+                    RAGIC_MAP["date_end"]:   model["end_date"].isoformat(),
+                    RAGIC_MAP["date_sign"]:  sign_deadline,
+                    RAGIC_MAP["details"]:    details,
+                }
+                if RAGIC_MAP.get("platform"):
+                    data_payload[RAGIC_MAP["platform"]] = ac.agency_platform_text(model)
+                if RAGIC_MAP.get("total_spots"):
+                    data_payload[RAGIC_MAP["total_spots"]] = ac.agency_total_spots(model)
+                if RAGIC_MAP.get("seconds_union"):
+                    data_payload[RAGIC_MAP["seconds_union"]] = ac.agency_seconds_union(model)
+
+                files_payload = {
+                    RAGIC_MAP["file_xls"]: (
+                        xlsx_name, xlsx_bytes,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+                }
+                if pdf_bytes:
+                    files_payload[RAGIC_MAP["file_pdf"]] = (
+                        xlsx_name.rsplit(".", 1)[0] + ".pdf", pdf_bytes, "application/pdf",
+                    )
+
+                success, msg, _rid = upload_to_ragic(
+                    st.session_state["ragic_url"], st.session_state["ragic_key"],
+                    data_payload, files_payload,
+                )
+            st.session_state["ag_ragic_confirm"] = False
+            if success:
+                if not pdf_bytes:
+                    msg += f"（⚠️ PDF 未附上：{pdf_err}）"
+                st.session_state["ag_upload_success_msg"] = msg
+            else:
+                st.error(f"上傳失敗: {msg}")
+            st.rerun()
+
+
+# =============================================================================
+# Ragic 搜尋 / 載入舊案
+# =============================================================================
+def _render_agency_search():
+    """搜尋已上傳的代理商 CUE，選一筆載入回表單（100% 還原輸入）。"""
+    with st.expander("🔍 搜尋 / 載入已上傳的代理商案子"):
+        if not st.session_state.get("ragic_key"):
+            st.info("尚未設定 Ragic API Key（於一般 CUE 頁面的『Ragic 連線設定』設定）。")
+            return
+
+        kw = st.text_input("輸入 Cue號 或 關鍵字", key="ag_search_kw",
+                           placeholder="例如：統一企業 或 1001")
+        if st.button("搜尋 Ragic", key="ag_search_btn"):
+            found = search_ragic_records(st.session_state["ragic_url"], st.session_state["ragic_key"], kw)
+            # 只留「代理商 CUE」案子（details 含代理商標記）
+            found = [r for r in found if ac.is_agency_record_details(r.get(RAGIC_MAP["details"], ""))]
+            st.session_state["ag_found_records"] = found
+            if not found:
+                st.warning("查無代理商 CUE 資料")
+
+        records = st.session_state.get("ag_found_records") or []
+        if not records:
+            return
+
+        def _fmt(idx):
+            r = records[idx]
+            c = r.get(RAGIC_MAP["client"], "")
+            p = r.get(RAGIC_MAP["product"], "")
+            agy = r.get(RAGIC_MAP["sales"], "")
+            d = (r.get(RAGIC_MAP["date_start"], "") or "").split(" ")[0] or "無日期"
+            cue = r.get(RAGIC_FIELD_SERIAL, "")
+            return f"📅 {d} | 🏢 {c} - 📦 {p} [{agy}] | 🔢 {cue}"
+
+        sel = st.selectbox("選擇一筆資料", range(len(records)), format_func=_fmt, key="ag_search_sel")
+        rec = records[sel]
+        st.caption(f"Cue號：{rec.get(RAGIC_FIELD_SERIAL, '未設定')}｜"
+                   f"含稅合計：${_ragic_number(rec.get(RAGIC_MAP['budget_fin'])):,.0f}｜"
+                   f"走期：{rec.get(RAGIC_MAP['date_start'], '')} ~ {rec.get(RAGIC_MAP['date_end'], '')}")
+
+        if st.button("📋 載入此案設定", key="ag_search_load"):
+            ok, msg = _restore_agency_state(rec)
+            if ok:
+                st.success(msg)
+                st.rerun()
+            else:
+                st.error(msg)
+
+
+def _restore_agency_state(record):
+    """把 Ragic 記錄的 [AGENCY_EXT] JSON 還原到 st.session_state（ag_* widget keys）。"""
+    ext = ac.parse_agency_ext(record.get(RAGIC_MAP["details"], ""))
+    if not ext:
+        return False, "❌ 此筆非代理商 CUE 或缺少可還原的設定資料。"
+
+    def _d(s):
+        try:
+            return date.fromisoformat(s)
+        except (ValueError, TypeError):
+            return None
+
+    ss = st.session_state
+    ss["ag_agency"] = ext.get("agency", config.AGENCY_LIST[0])
+    ss["ag_client"] = ext.get("client_name", "")
+    ss["ag_product"] = ext.get("product_name", "")
+    ss["ag_campaign"] = ext.get("campaign", "")
+
+    for key, ek in (("ag_start", "start_date"), ("ag_end", "end_date"), ("ag_material", "material_due")):
+        dv = _d(ext.get(ek))
+        if dv:
+            ss[key] = dv
+    ss["ag_budget"] = int(ext.get("total_budget", 0) or 0)
+
+    if ext.get("comp_mode") in ac.COMP_OPTIONS:
+        ss["ag_comp"] = ext["comp_mode"]
+
+    # 全家企頻
+    fam = ext.get("fam_cfg")
+    if fam and fam.get("enabled"):
+        ss["ag_fam_on"] = True
+        ss["ag_fam_sec"] = int(fam.get("seconds", 15))
+        ss["ag_fam_reb"] = int(fam.get("rebate_pct", 0) or 0)
+        ss["ag_fam_ovr"] = int(fam.get("spots_override", 0) or 0)
+        ss["ag_fam_share"] = int(fam.get("share", 100) or 100)
+    else:
+        ss["ag_fam_on"] = False
+
+    # 萬家福
+    wjf = ext.get("wjf_cfg")
+    if wjf and wjf.get("enabled"):
+        ss["ag_wjf_on"] = True
+        ss["ag_wjf_sec"] = int(wjf.get("seconds", 20))
+        ss["ag_wjf_reb"] = int(wjf.get("rebate_pct", 0) or 0)
+        ss["ag_wjf_wave"] = bool(wjf.get("is_rebate_wave", False))
+        ss["ag_wjf_ovr"] = int(wjf.get("mag_override", 0) or 0)
+        ss["ag_wjf_share"] = int(wjf.get("share", 100) or 100)
+    else:
+        ss["ag_wjf_on"] = False
+        if wjf and wjf.get("seconds"):
+            ss["ag_wjf_comp_sec"] = int(wjf["seconds"])
+
+    # 費用 / AC
+    if ext.get("ac_pct") is not None:
+        ss["ag_ac"] = float(ext["ac_pct"])
+    ss["ag_ac_free"] = bool(ext.get("ac_free", False))
+    sign = _d(ext.get("sign_date"))
+    if sign:
+        ss["ag_sign"] = sign
+
+    # 備註（設 ag_remarks_for 以免被預設備註覆寫）
+    remarks = ext.get("remarks") or []
+    ss["ag_remarks"] = "\n".join(remarks)
+    ss["ag_remarks_for"] = ss["ag_agency"]
+    ss["ag_paynote"] = ext.get("payment_note", "")
+
+    return True, "✅ 已載入，請檢查下方設定。"

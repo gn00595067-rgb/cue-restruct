@@ -18,6 +18,7 @@
 
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, timedelta
+import json
 import math
 
 import config
@@ -659,3 +660,110 @@ def default_payment_note(start_dt, end_dt, net_total):
             allocated += amt
         parts.append(f"{m}月份Net${amt:,}元(未稅)")
     return "* 請款金額：" + "、".join(parts) + "。"
+
+
+# =============================================================================
+# Ragic 上傳輔助（代理商 CUE 與一般 CUE 共用同一張 Ragic 表單）
+# =============================================================================
+# 上傳標記：details 欄位以此字串開頭，搜尋時可據以篩出「代理商 CUE」案子。
+AGENCY_RAGIC_TAG = "【代理商CUE】"
+# details 內嵌完整表單輸入的 JSON 段落標記，供「載入舊案」100% 還原表單。
+AGENCY_EXT_MARKER = "[AGENCY_EXT]"
+
+
+def agency_grand_total(model):
+    """全部 sheet 的「含稅合計」總和（給 Ragic budget_fin 用）。"""
+    total = 0
+    for s in model.get("sheets", []):
+        f = s.get("fees", {})
+        for k in ("total", "gross", "grand"):  # 2008 / 佳聖 / 凱絡
+            v = f.get(k)
+            if isinstance(v, (int, float)):
+                total += v
+                break
+    return int(total)
+
+
+def agency_net_total(model):
+    """全部 sheet 的「未稅實收 Net」總和。"""
+    total = 0
+    for s in model.get("sheets", []):
+        f = s.get("fees", {})
+        for k in ("budget_net", "net", "subtotal"):  # 2008 / 佳聖 / 凱絡
+            v = f.get(k)
+            if isinstance(v, (int, float)):
+                total += v
+                break
+    return int(total)
+
+
+def agency_total_spots(model):
+    """所有列的檔次加總（含補償/回饋/超市）。"""
+    total = 0
+    for s in model.get("sheets", []):
+        for r in s.get("rows", []):
+            sp = r.get("spots")
+            if isinstance(sp, (int, float)):
+                total += int(sp)
+    return total
+
+
+def agency_platform_text(model):
+    """平台清單文字，如「全家企頻、萬家福」。"""
+    seen = []
+    for s in model.get("sheets", []):
+        p = s.get("platform")
+        if p and p not in seen:
+            seen.append(p)
+    return "、".join(seen)
+
+
+def agency_seconds_union(model):
+    """使用到的秒數聯集文字，如「15、20」。"""
+    secs = sorted({int(s["seconds"]) for s in model.get("sheets", []) if s.get("seconds")})
+    return "、".join(str(x) for x in secs)
+
+
+def build_agency_ragic_details(model, form_inputs):
+    """
+    組出寫入 Ragic「備註(details)」欄位的字串：
+      1. 人可讀摘要（代理商 / 平台 / 檔次 / 費用）
+      2. [AGENCY_EXT] JSON：完整表單輸入，供「載入舊案」還原。
+
+    form_inputs 由 UI 蒐集，須為 JSON 可序列化（日期用 isoformat 字串）。
+    """
+    lines = [f"{AGENCY_RAGIC_TAG}代理商：{model['agency']}"]
+    if model.get("campaign"):
+        lines.append(f"Campaign：{model['campaign']}")
+    lines.append(f"平台：{agency_platform_text(model)}（秒數 {agency_seconds_union(model)}）")
+    lines.append(f"總檔數：{agency_total_spots(model)}　實收(未稅)：${agency_net_total(model):,}"
+                 f"　含稅合計：${agency_grand_total(model):,}")
+    for s in model.get("sheets", []):
+        f = s.get("fees", {})
+        gt = next((f[k] for k in ("total", "gross", "grand") if isinstance(f.get(k), (int, float))), 0)
+        lines.append(f"・{s.get('platform')}（{s.get('seconds')}秒）含稅 ${int(gt):,}")
+    if model.get("payment_note"):
+        lines.append(model["payment_note"])
+    summary = "\n".join(lines)
+    ext = json.dumps(form_inputs, ensure_ascii=False)
+    return f"{summary}\n{AGENCY_EXT_MARKER}{ext}"
+
+
+def parse_agency_ext(details):
+    """從 details 字串取出 [AGENCY_EXT] JSON；非代理商案或損毀時回傳 None。"""
+    if not details or AGENCY_EXT_MARKER not in details:
+        return None
+    try:
+        ext_part = details.split(AGENCY_EXT_MARKER, 1)[1].strip()
+        if not ext_part:
+            return None
+        return json.loads(ext_part)
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return None
+
+
+def is_agency_record_details(details):
+    """該筆 Ragic 資料是否為代理商 CUE（供搜尋清單篩選）。"""
+    if not details:
+        return False
+    return AGENCY_RAGIC_TAG in details or AGENCY_EXT_MARKER in details
