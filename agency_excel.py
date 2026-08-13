@@ -515,14 +515,21 @@ def _render_carat(wb, sheet, model, made_date):
     sec = sheet["seconds"]
     ws = wb.create_sheet(title=_sheet_name(model, sheet))
     # 左邊留白，列印 PDF 時左側不會切齊紙邊（YM 回饋）
-    _page(ws, margins=(0.6, 0.2, 0.3, 0.2))
+    _page(ws, margins=(0.3, 0.2, 0.3, 0.2))
 
-    DAY0 = 11
+    # 第 1 欄(A)留白當左邊距；表格自 B 欄(X0=2)起，左外框補在 B 欄，與最右外框對稱。
+    X0 = 2
+    ws.column_dimensions[get_column_letter(1)].width = 3.2  # 左側留白欄（無框線）
+
+    def cl(i):  # 邏輯欄 0-based → 欄字母（已含左留白位移）
+        return get_column_letter(X0 + i)
+
+    MEDIA, REGION, DAYPART, MATERIAL, LIST_, MARKET, UNI, SPOTS, TOTAL, PROJ = (cl(i) for i in range(10))
+    DAY0 = X0 + 10
     # I(總價)加寬到 17：左邊留白後 fitToWidth 會縮版，14.5 會讓 7 位數總價顯示 ######
-    widths = {"A": 21.5, "B": 18.7, "C": 15.7, "D": 9.5, "E": 11.3, "F": 11.5,
-              "G": 11.5, "H": 10.5, "I": 17.0, "J": 14.1}
-    for k, v in widths.items():
-        ws.column_dimensions[k].width = v
+    widths = [21.5, 18.7, 15.7, 9.5, 11.3, 11.5, 11.5, 10.5, 17.0, 14.1]
+    for i, w in enumerate(widths):
+        ws.column_dimensions[cl(i)].width = w
     for i in range(days):
         ws.column_dimensions[get_column_letter(DAY0 + i)].width = 8.6
     last_col = DAY0 + days - 1
@@ -534,23 +541,23 @@ def _render_carat(wb, sheet, model, made_date):
 
     made = made_date or model["start_date"]
     # 大標靠左、不合併
-    _set(ws, "A1", "凱絡媒體服務(股)公司廣播媒體排期表", size=16, bold=True, align="left")
+    _set(ws, f"{MEDIA}1", "凱絡媒體服務(股)公司廣播媒體排期表", size=16, bold=True, align="left")
     # 右上抬頭
-    _set(ws, "I2", "客   戶：", size=14, align="right")
-    _set(ws, "J2", model["client_name"], size=14, align="left")
-    _set(ws, "I3", "產   品：", size=14, align="right")
-    _set(ws, "J3", model["product_name"], size=14, align="left")
-    _set(ws, "I4", "日   期：", size=14, align="right")
-    _set(ws, "J4", made.strftime("%Y/%m/%d"), size=14, align="left")
-    _set(ws, "A4", f"{start_dt.year}年{start_dt.month}月", size=14, align="left")
+    _set(ws, f"{TOTAL}2", "客   戶：", size=14, align="right")
+    _set(ws, f"{PROJ}2", model["client_name"], size=14, align="left")
+    _set(ws, f"{TOTAL}3", "產   品：", size=14, align="right")
+    _set(ws, f"{PROJ}3", model["product_name"], size=14, align="left")
+    _set(ws, f"{TOTAL}4", "日   期：", size=14, align="right")
+    _set(ws, f"{PROJ}4", made.strftime("%Y/%m/%d"), size=14, align="left")
+    _set(ws, f"{MEDIA}4", f"{start_dt.year}年{start_dt.month}月", size=14, align="left")
 
     # 欄位表頭 5~7
-    heads = [("A", "媒體別"), ("B", "地區"), ("C", "時段"), ("D", "素材"),
-             ("E", "定價\n(檔/Net)"), ("F", "市場價\n(檔/Net)"), ("G", "統一價\n(檔/Net)"),
-             ("H", "檔數"), ("I", "總價"), ("J", "專案價\n(Net)")]
-    for col, txt in heads:
-        _set(ws, f"{col}5", txt, size=12, bold=True, wrap=True)
-        _merge(ws, f"{col}5:{col}7")
+    heads = [(MEDIA, "媒體別"), (REGION, "地區"), (DAYPART, "時段"), (MATERIAL, "素材"),
+             (LIST_, "定價\n(檔/Net)"), (MARKET, "市場價\n(檔/Net)"), (UNI, "統一價\n(檔/Net)"),
+             (SPOTS, "檔數"), (TOTAL, "總價"), (PROJ, "專案價\n(Net)")]
+    for c, txt in heads:
+        _set(ws, f"{c}5", txt, size=12, bold=True, wrap=True)
+        _merge(ws, f"{c}5:{c}7")
     _write_day_header(ws, DAY0, start_dt, days, 5, 6, 7, _en_weekday, month_style="en",
                       size=12, date_fmt="#,##0", weekend_fill_rows=(7,))
     # 最右加「總檔數」欄（對齊範本）
@@ -559,7 +566,7 @@ def _render_carat(wb, sheet, model, made_date):
     ws.column_dimensions[tl].width = 9.5
     _set(ws, f"{tl}5", "總檔數", size=12, bold=True, wrap=True)
     _merge(ws, f"{tl}5:{tl}7")
-    _box(ws, 5, 1, 7, tot_col, edge="medium", inner="thin")
+    _box(ws, 5, X0, 7, tot_col, edge="medium", inner="thin")
 
     day_cols = [(DAY0 + i, i) for i in range(days)]
     r = 8
@@ -585,19 +592,19 @@ def _render_carat(wb, sheet, model, made_date):
         for k, row in enumerate(grp):
             rr = r + k
             ws.row_dimensions[rr].height = 58
-            _set(ws, f"B{rr}", row["region_label"], size=12, wrap=True)
-            _set(ws, f"C{rr}", row["daypart"], size=12)
-            _set(ws, f"D{rr}", f'{sec}"CM', size=12, fmt="@")
-            _set(ws, f"E{rr}", row["list_per"], size=12, fmt=ACCT)
-            _set(ws, f"F{rr}", row["market_per"], size=12, fmt=ACCT)
-            _set(ws, f"G{rr}", row["uni_per"], size=12, fmt=ACCT)
-            _set(ws, f"H{rr}", row["spots"], size=12, fmt=CARAT_H_FMT)
-            _set(ws, f"I{rr}", row["uni_total"], size=12, fmt=ACCT)
+            _set(ws, f"{REGION}{rr}", row["region_label"], size=12, wrap=True)
+            _set(ws, f"{DAYPART}{rr}", row["daypart"], size=12)
+            _set(ws, f"{MATERIAL}{rr}", f'{sec}"CM', size=12, fmt="@")
+            _set(ws, f"{LIST_}{rr}", row["list_per"], size=12, fmt=ACCT)
+            _set(ws, f"{MARKET}{rr}", row["market_per"], size=12, fmt=ACCT)
+            _set(ws, f"{UNI}{rr}", row["uni_per"], size=12, fmt=ACCT)
+            _set(ws, f"{SPOTS}{rr}", row["spots"], size=12, fmt=CARAT_H_FMT)
+            _set(ws, f"{TOTAL}{rr}", row["uni_total"], size=12, fmt=ACCT)
             # 回饋列在表上顯示「聲活回饋」（內部 net_display 仍為專案回饋）
             jval = row["net_display"]
             if row["kind"] == ac.KIND_REBATE and jval == ac.NET_REBATE:
                 jval = ac.CARAT_REBATE_LABEL
-            _net_cell(ws, f"J{rr}", jval, size=12,
+            _net_cell(ws, f"{PROJ}{rr}", jval, size=12,
                       bold=(row["kind"] == ac.KIND_MAIN), align="center")
             media_value += row["uni_total"] if isinstance(row["uni_total"], (int, float)) else 0
             if row["schedule"] is None:
@@ -611,42 +618,42 @@ def _render_carat(wb, sheet, model, made_date):
                 schedule_rows.append((rr, row["schedule"]))
             # 總檔數（最右欄）
             _set(ws, f"{tl}{rr}", row["spots"], size=12, fmt=CARAT_H_FMT)
-        _set(ws, f"A{gtop}", grp[0]["media_label"], size=12, wrap=True)
+        _set(ws, f"{MEDIA}{gtop}", grp[0]["media_label"], size=12, wrap=True)
         r += len(grp)
     data_bot = r - 1
 
-    # 媒體別（A）整塊合併為單一格（全表同一媒體別）；
-    # 全家表另把地區/時段/素材（B/C/D）併入回饋等延續列，使左側整齊。
-    # 萬家福表量販/超市地區時段不同，故 B/C/D 逐列保留、只合併媒體別。
+    # 媒體別整塊合併為單一格（全表同一媒體別）；
+    # 全家表另把地區/時段/素材併入回饋等延續列，使左側整齊。
+    # 萬家福表量販/超市地區時段不同，故逐列保留、只合併媒體別。
     is_wjf = sheet["platform"] == ac.PLATFORM_WJF
     if data_bot > data_top:
-        _merge(ws, f"A{data_top}:A{data_bot}")
+        _merge(ws, f"{MEDIA}{data_top}:{MEDIA}{data_bot}")
         if not is_wjf:
-            for col in ("B", "C", "D"):
-                _merge(ws, f"{col}{data_top}:{col}{data_bot}")
+            for c in (REGION, DAYPART, MATERIAL):
+                _merge(ws, f"{c}{data_top}:{c}{data_bot}")
 
-    _box(ws, data_top, 1, data_bot, tot_col, edge="medium", inner="thin")
+    _box(ws, data_top, X0, data_bot, tot_col, edge="medium", inner="thin")
 
-    # 媒體總價值 / 優惠總價值（A 標籤、B 數字，medium 方框）
+    # 媒體總價值 / 優惠總價值（標籤＋數字，medium 方框）
     mv_top = data_bot + 1
-    _set(ws, f"A{mv_top}", "媒體總價值(NET)", size=12, bold=True, align="left")
-    _set(ws, f"B{mv_top}", media_value, size=12, fmt=ACCT)
-    _set(ws, f"A{mv_top + 1}", "優惠總價值(NET)", size=12, bold=True, align="left")
-    _set(ws, f"B{mv_top + 1}", media_value - actual_net, size=12, fmt=ACCT)
-    _box(ws, mv_top, 1, mv_top + 1, 2, edge="medium", inner="thin")
+    _set(ws, f"{MEDIA}{mv_top}", "媒體總價值(NET)", size=12, bold=True, align="left")
+    _set(ws, f"{REGION}{mv_top}", media_value, size=12, fmt=ACCT)
+    _set(ws, f"{MEDIA}{mv_top + 1}", "優惠總價值(NET)", size=12, bold=True, align="left")
+    _set(ws, f"{REGION}{mv_top + 1}", media_value - actual_net, size=12, fmt=ACCT)
+    _box(ws, mv_top, X0, mv_top + 1, X0 + 1, edge="medium", inner="thin")
 
-    # 費用區 I:J（純數字；只有 Grand-Total 上細線下雙線）
+    # 費用區（純數字；只有 Grand-Total 上細線下雙線）
     f = sheet["fees"]
     ac_txt = "-" if f.get("ac_free") else f.get("ac", 0)
     fee_lines = [("Sub-Total", f["subtotal"]), ("A.C     3%", ac_txt),
                  ("VAT    5%", f["vat"]), ("Grand-Total", f["grand"])]
     for i, (lab, val) in enumerate(fee_lines):
         rr = data_bot + 1 + i
-        _set(ws, f"I{rr}", lab, size=12, bold=True, align="left")
-        _net_cell(ws, f"J{rr}", val, size=12, bold=True, fmt=NUM, align="right")
+        _set(ws, f"{TOTAL}{rr}", lab, size=12, bold=True, align="left")
+        _net_cell(ws, f"{PROJ}{rr}", val, size=12, bold=True, fmt=NUM, align="right")
         if lab == "Grand-Total":
-            _edge(ws, f"I{rr}", top="thin", bottom="double")
-            _edge(ws, f"J{rr}", top="thin", bottom="double")
+            _edge(ws, f"{TOTAL}{rr}", top="thin", bottom="double")
+            _edge(ws, f"{PROJ}{rr}", top="thin", bottom="double")
 
     fee_bottom = data_bot + len(fee_lines)
 
@@ -656,14 +663,14 @@ def _render_carat(wb, sheet, model, made_date):
     for rr in range(sig_top, sig_bottom + 1):
         ws.row_dimensions[rr].height = 22
     sig_mid = sig_top + 1
-    _set(ws, f"A{sig_mid}", "部主管：_________ ", size=12, align="left", valign="center")
-    _set(ws, f"D{sig_mid}", "課主管：_________ ", size=12, align="left", valign="center")
-    _set(ws, f"I{sig_mid}", "媒體窗口：_________", size=12, align="left", valign="center")
-    _set(ws, f"O{sig_mid}", "承辦PM：_________", size=12, align="left", valign="center")
-    _box(ws, sig_top, 1, sig_bottom, tot_col, edge="medium", inner=None)
+    _set(ws, f"{MEDIA}{sig_mid}", "部主管：_________ ", size=12, align="left", valign="center")
+    _set(ws, f"{MATERIAL}{sig_mid}", "課主管：_________ ", size=12, align="left", valign="center")
+    _set(ws, f"{TOTAL}{sig_mid}", "媒體窗口：_________", size=12, align="left", valign="center")
+    _set(ws, f"{get_column_letter(DAY0 + 4)}{sig_mid}", "承辦PM：_________", size=12, align="left", valign="center")
+    _box(ws, sig_top, X0, sig_bottom, tot_col, edge="medium", inner=None)
 
     # 備註：medium 外框；上下各留一列 padding 使文字不貼邊線，內容列之間再空一列。
-    # A 欄「備／註」二字直向分布（比照原始範本）。
+    # 「備／註」二字置中；標籤格與內容以直線分隔（備註格自帶框線）。
     rmk = model.get("remarks", [])
     rk_top = sig_bottom + 1
     lines_n = max(1, len(rmk))
@@ -672,21 +679,31 @@ def _render_carat(wb, sheet, model, made_date):
     rk_bot = rk_top + row_span - 1
     ws.row_dimensions[rk_top].height = 8   # 頂部留白
     ws.row_dimensions[rk_bot].height = 8   # 底部留白
-    a = ws[f"A{rk_top}"]
+    a = ws[f"{MEDIA}{rk_top}"]
     a.value = "備\n註"
     a.font = Font(name=FONT, size=12, bold=True)
     # 置中：備／註 兩字靠在一起置於中間，不要被 distributed 拉到上下兩端
     a.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     if row_span > 1:
-        _merge(ws, f"A{rk_top}:A{rk_bot}")
+        _merge(ws, f"{MEDIA}{rk_top}:{MEDIA}{rk_bot}")
     for i, line in enumerate(rmk):
         rr = rk_top + 1 + i * 2            # +1 跳過頂部 padding 列
         ws.row_dimensions[rr].height = 20  # 內容列高，文字垂直置中不貼邊線
-        _set(ws, f"B{rr}", line, size=12, align="left", valign="center", wrap=True)
-        _merge(ws, f"B{rr}:{get_column_letter(tot_col)}{rr}")
+        _set(ws, f"{REGION}{rr}", line, size=12, align="left", valign="center", wrap=True)
+        _merge(ws, f"{REGION}{rr}:{tl}{rr}")
         if i < len(rmk) - 1:
             ws.row_dimensions[rr + 1].height = 16  # 內容列之間的空白間距列
-    _box(ws, rk_top, 1, rk_bot, tot_col, edge="medium", inner=None)
+    _box(ws, rk_top, X0, rk_bot, tot_col, edge="medium", inner=None)
+    # 備註標籤格（備／註）與內容以直線分隔（additive 疊加，不覆蓋其他格線）
+    for rr in range(rk_top, rk_bot + 1):
+        _edge(ws, f"{MEDIA}{rr}", right="medium")
+
+    # 整張表左右外框連續包住（表頭 row5 → 備註底），與最右外框對稱（YM 回饋）。
+    # 用 _edge 疊加（非 _box），才不會抹掉內部格線。
+    left_letter = get_column_letter(X0)
+    for rr in range(5, rk_bot + 1):
+        _edge(ws, f"{left_letter}{rr}", left="medium")
+        _edge(ws, f"{tl}{rr}", right="medium")
     return ws
 
 
