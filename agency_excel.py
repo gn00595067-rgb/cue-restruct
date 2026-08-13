@@ -206,10 +206,18 @@ def _render_2008(wb, sheet, model, made_date):
     ws = wb.create_sheet(title=_sheet_name(model, sheet))
     _page(ws, margins=(0.31, 0.31, 1.1, 0.75))
 
-    DAY0 = 9
-    widths = {"A": 48.6, "B": 22.0, "C": 31.6, "D": 33.6, "E": 20.9, "F": 32.6, "G": 36.6, "H": 29.4}
-    for k, v in widths.items():
-        ws.column_dimensions[k].width = v
+    # 第 1 欄(A)留白當左邊距；表格自 B 欄(X0=2)起，左外框補在 B 欄，與最右外框對稱。
+    X0 = 2
+    ws.column_dimensions[get_column_letter(1)].width = 3.2  # 左側留白欄（無框線）
+
+    def cl(i):  # 邏輯欄 0-based → 欄字母（已含左留白位移）
+        return get_column_letter(X0 + i)
+
+    A_, B_, C_, D_, E_, F_, G_, H_ = (cl(i) for i in range(8))
+    DAY0 = X0 + 8
+    widths = [48.6, 22.0, 31.6, 33.6, 20.9, 32.6, 36.6, 29.4]
+    for i, w in enumerate(widths):
+        ws.column_dimensions[cl(i)].width = w
     for i in range(days):
         ws.column_dimensions[get_column_letter(DAY0 + i)].width = 8.9
     last_col = DAY0 + days - 1
@@ -235,16 +243,16 @@ def _render_2008(wb, sheet, model, made_date):
     ]
     for idx, (lab, val) in enumerate(header_pairs):
         rr = idx + 1
-        _set(ws, f"A{rr}", lab, size=28, bold=True, align="left")
-        _set(ws, f"C{rr}", val, size=28, bold=True, align="left")
-        _merge(ws, f"C{rr}:H{rr}")
+        _set(ws, f"{A_}{rr}", lab, size=28, bold=True, align="left")
+        _set(ws, f"{C_}{rr}", val, size=28, bold=True, align="left")
+        _merge(ws, f"{C_}{rr}:{H_}{rr}")
 
     # 欄位表頭 8~10（24pt 不粗）
-    heads = [("A", "媒體型態"), ("B", "地區"), ("C", "播出時段"), ("D", "定價"),
-             ("E", "單位"), ("F", "次數"), ("G", "合計"), ("H", "素材\n提供時間")]
-    for col, txt in heads:
-        _set(ws, f"{col}8", txt, size=24, wrap=True)
-        _merge(ws, f"{col}8:{col}10")
+    heads = [(A_, "媒體型態"), (B_, "地區"), (C_, "播出時段"), (D_, "定價"),
+             (E_, "單位"), (F_, "次數"), (G_, "合計"), (H_, "素材\n提供時間")]
+    for c, txt in heads:
+        _set(ws, f"{c}8", txt, size=24, wrap=True)
+        _merge(ws, f"{c}8:{c}10")
     _write_day_header(ws, DAY0, start_dt, days, 8, 9, 10, _cn_weekday, month_style="en",
                       size=24, date_as_datetime=True, date_fmt="d", weekend_fill_rows=(9, 10))
 
@@ -264,7 +272,7 @@ def _render_2008(wb, sheet, model, made_date):
             rr = r + k
             data_rows.append((rr, row))
             ws.row_dimensions[rr].height = 105.65 if row["kind"] == ac.KIND_MAIN else 93.75
-            _set(ws, f"F{rr}", row["spots"], size=24, fmt=DAY_FMT)
+            _set(ws, f"{F_}{rr}", row["spots"], size=24, fmt=DAY_FMT)
             total_spots += row["spots"]
             if row["schedule"] is None:
                 c0, c1 = get_column_letter(DAY0), get_column_letter(last_col)
@@ -277,22 +285,22 @@ def _render_2008(wb, sheet, model, made_date):
                 schedule_rows.append((rr, row["schedule"]))
             if isinstance(row["net_display"], (int, float)):
                 total_net += row["net_display"]
-        _set(ws, f"A{gtop}", main["media_label"], size=24, wrap=True)
-        _set(ws, f"B{gtop}", main["region_label"], size=24)
-        _set(ws, f"C{gtop}", main["daypart"], size=24)
+        _set(ws, f"{A_}{gtop}", main["media_label"], size=24, wrap=True)
+        _set(ws, f"{B_}{gtop}", main["region_label"], size=24)
+        _set(ws, f"{C_}{gtop}", main["daypart"], size=24)
         # 樂家康(超市)定價比照合計欄，顯示「計價於量販」而非 $0
         if main["kind"] in (ac.KIND_SUPER, ac.KIND_SUPER_REBATE):
-            _set(ws, f"D{gtop}", ac.NET_ON_MAG, size=24)
+            _set(ws, f"{D_}{gtop}", ac.NET_ON_MAG, size=24)
         else:
-            _set(ws, f"D{gtop}", main["list_total"], size=24, fmt=ACCT)
-        _set(ws, f"E{gtop}", f"{sec}秒", size=24)
-        _net_cell(ws, f"G{gtop}", main["net_display"], size=24)
-        _set(ws, f"H{gtop}", _mat_str(main["material"]), size=24, wrap=True)
+            _set(ws, f"{D_}{gtop}", main["list_total"], size=24, fmt=ACCT)
+        _set(ws, f"{E_}{gtop}", f"{sec}秒", size=24)
+        _net_cell(ws, f"{G_}{gtop}", main["net_display"], size=24)
+        _set(ws, f"{H_}{gtop}", _mat_str(main["material"]), size=24, wrap=True)
         total_list += main["list_total"]
         # 定價/單位/合計：僅在同組（主+補償）內合併
         if gbot > gtop:
-            for col in ("D", "E", "G"):
-                _merge(ws, f"{col}{gtop}:{col}{gbot}")
+            for c in (D_, E_, G_):
+                _merge(ws, f"{c}{gtop}:{c}{gbot}")
         r = gbot + 1
 
     data_bot = r - 1
@@ -303,37 +311,34 @@ def _render_2008(wb, sheet, model, made_date):
     for rr, row in data_rows:
         if row["media_label"]:
             if blk_top is not None and rr - 1 > blk_top:
-                for col in ("A", "B", "C"):
-                    _merge(ws, f"{col}{blk_top}:{col}{rr - 1}")
+                for c in (A_, B_, C_):
+                    _merge(ws, f"{c}{blk_top}:{c}{rr - 1}")
             blk_top = rr
     if blk_top is not None and data_bot > blk_top:
-        for col in ("A", "B", "C"):
-            _merge(ws, f"{col}{blk_top}:{col}{data_bot}")
+        for c in (A_, B_, C_):
+            _merge(ws, f"{c}{blk_top}:{c}{data_bot}")
     # 素材提供時間（H）：整張表同一素材日，整塊合併蓋住所有資料列（含量販→樂家康）
     if data_bot > data_top:
-        _merge(ws, f"H{data_top}:H{data_bot}")
+        _merge(ws, f"{H_}{data_top}:{H_}{data_bot}")
     # 合計列
     ws.row_dimensions[r].height = 80.15
-    _set(ws, f"B{r}", "合計", size=24)
-    _merge(ws, f"B{r}:C{r}")
-    _set(ws, f"D{r}", total_list, size=24, fmt=ACCT)
-    _set(ws, f"F{r}", total_spots, size=24, fmt=SUM_FMT)
-    _set(ws, f"G{r}", total_net, size=24, fmt=ACCT)
+    _set(ws, f"{B_}{r}", "合計", size=24)
+    _merge(ws, f"{B_}{r}:{C_}{r}")
+    _set(ws, f"{D_}{r}", total_list, size=24, fmt=ACCT)
+    _set(ws, f"{F_}{r}", total_spots, size=24, fmt=SUM_FMT)
+    _set(ws, f"{G_}{r}", total_net, size=24, fmt=ACCT)
     for cidx, off in day_cols:
         _set(ws, f"{get_column_letter(cidx)}{r}", sum(s[off] for _, s in schedule_rows),
              size=24, bold=True, fmt=DAY_RED)
     total_row = r
 
     # 框線層次：整表外框 double、日欄縱線 hair、表頭下緣 double、合計上緣 double
-    _box(ws, 8, 1, total_row, last_col, edge="double", inner="hair")
-    for c in range(1, last_col + 1):
+    _box(ws, 8, X0, total_row, last_col, edge="double", inner="hair")
+    for c in range(X0, last_col + 1):
         _edge(ws, f"{get_column_letter(c)}10", bottom="double")   # 表頭區結束線
         _edge(ws, f"{get_column_letter(c)}{total_row}", top="double")  # 合計上緣
-    # 主檔列 A 欄四邊 double
-    for grp in _group_main_comp(sheet["rows"]):
-        pass  # A 欄已在外框，主檔區塊視覺上已由 double 外框涵蓋
 
-    # 費用區 F16:G19（四條細橫線的小表，無縱線）
+    # 費用區（四條細橫線的小表，無縱線）
     fr = total_row + 2
     f = sheet["fees"]
     fee_lines = [
@@ -345,17 +350,17 @@ def _render_2008(wb, sheet, model, made_date):
     for i, (lab, val) in enumerate(fee_lines):
         rr = fr + i
         ws.row_dimensions[rr].height = 60
-        _set(ws, f"F{rr}", lab, size=24, bold=True, align="right")
-        _net_cell(ws, f"G{rr}", val, size=24, bold=True)
-        _edge(ws, f"F{rr}", top="thin", bottom="thin")
-        _edge(ws, f"G{rr}", top="thin", bottom="thin")
+        _set(ws, f"{F_}{rr}", lab, size=24, bold=True, align="right")
+        _net_cell(ws, f"{G_}{rr}", val, size=24, bold=True)
+        _edge(ws, f"{F_}{rr}", top="thin", bottom="thin")
+        _edge(ws, f"{G_}{rr}", top="thin", bottom="thin")
 
     # 備註 28pt 粗體
     rr = fr + len(fee_lines) + 1
     for line in model.get("remarks", []):
         ws.row_dimensions[rr].height = 55.75
-        _set(ws, f"A{rr}", line, size=28, bold=True, align="left")
-        _merge(ws, f"A{rr}:{get_column_letter(last_col)}{rr}")
+        _set(ws, f"{A_}{rr}", line, size=28, bold=True, align="left")
+        _merge(ws, f"{A_}{rr}:{get_column_letter(last_col)}{rr}")
         rr += 1
     return ws
 
@@ -369,7 +374,7 @@ def _render_ddrive(wb, sheet, model, made_date):
     sec = sheet["seconds"]
     ws = wb.create_sheet(title=_sheet_name(model, sheet))
     # 左邊留白，列印 PDF 時左側不會切齊紙邊（YM 回饋）
-    _page(ws, margins=(0.6, 0.2, 0.4, 0.2))
+    _page(ws, margins=(0.3, 0.2, 0.4, 0.2))
 
     # 列印頁首/頁尾
     ws.oddHeader.center.text = "佳聖媒體  戶外媒體排期表"
@@ -377,10 +382,18 @@ def _render_ddrive(wb, sheet, model, made_date):
                               "課主管:_______________承辦PM:_______________")
     ws.oddFooter.right.text = "佳聖媒體: ____________________          "
 
-    DAY0 = 9
-    widths = {"A": 31.6, "B": 25.5, "C": 18.1, "D": 19.9, "E": 15.9, "F": 21.4, "G": 23.5, "H": 23.5}
-    for k, v in widths.items():
-        ws.column_dimensions[k].width = v
+    # 第 1 欄(A)留白當左邊距；表格自 B 欄(X0=2)起，左外框補在 B 欄，與最右外框對稱。
+    X0 = 2
+    ws.column_dimensions[get_column_letter(1)].width = 3.2  # 左側留白欄（無框線）
+
+    def cl(i):  # 邏輯欄 0-based → 欄字母（已含左留白位移）
+        return get_column_letter(X0 + i)
+
+    A_, B_, C_, D_, E_, F_, G_, H_ = (cl(i) for i in range(8))
+    DAY0 = X0 + 8
+    widths = [31.6, 25.5, 18.1, 19.9, 15.9, 21.4, 23.5, 23.5]
+    for i, w in enumerate(widths):
+        ws.column_dimensions[cl(i)].width = w
     for i in range(days):
         ws.column_dimensions[get_column_letter(DAY0 + i)].width = 8.5
     last_col = DAY0 + days - 1
@@ -392,22 +405,22 @@ def _render_ddrive(wb, sheet, model, made_date):
     for r in (9, 10, 11):
         ws.row_dimensions[r].height = 38
 
-    _add_logo(ws, LOGO_DDRIVE, "A1", width=72, height=87)
+    _add_logo(ws, LOGO_DDRIVE, f"{A_}1", width=72, height=87)
 
     # 客戶/產品/刊期（標籤與值分開兩格；值前一空格；刊期短格式）
-    _set(ws, "A5", "客戶：", size=22, bold=True, align="left")
-    _set(ws, "B5", f" {model['client_name']}", size=22, bold=True, align="left")
-    _set(ws, "A6", "產品：", size=22, bold=True, align="left")
-    _set(ws, "B6", f" {model['product_name']}", size=22, bold=True, align="left")
-    _set(ws, "A7", "刊期：", size=22, bold=True, align="left")
-    _set(ws, "B7", f" {_period_short(model['start_date'], model['end_date'])}", size=22, bold=True, align="left")
+    _set(ws, f"{A_}5", "客戶：", size=22, bold=True, align="left")
+    _set(ws, f"{B_}5", f" {model['client_name']}", size=22, bold=True, align="left")
+    _set(ws, f"{A_}6", "產品：", size=22, bold=True, align="left")
+    _set(ws, f"{B_}6", f" {model['product_name']}", size=22, bold=True, align="left")
+    _set(ws, f"{A_}7", "刊期：", size=22, bold=True, align="left")
+    _set(ws, f"{B_}7", f" {_period_short(model['start_date'], model['end_date'])}", size=22, bold=True, align="left")
 
     # 欄位表頭 9~11
-    heads = [("A", "媒體"), ("B", "地區"), ("C", "託播秒數"), ("D", "播出時段"),
-             ("E", "次數"), ("F", "素材\n提供時間"), ("G", "定價\n(Net Cost)"), ("H", "專案執行價\n(Net Cost)")]
-    for col, txt in heads:
-        _set(ws, f"{col}9", txt, size=18, bold=True, wrap=True)
-        _merge(ws, f"{col}9:{col}11")
+    heads = [(A_, "媒體"), (B_, "地區"), (C_, "託播秒數"), (D_, "播出時段"),
+             (E_, "次數"), (F_, "素材\n提供時間"), (G_, "定價\n(Net Cost)"), (H_, "專案執行價\n(Net Cost)")]
+    for c, txt in heads:
+        _set(ws, f"{c}9", txt, size=18, bold=True, wrap=True)
+        _merge(ws, f"{c}9:{c}11")
     _write_day_header(ws, DAY0, start_dt, days, 9, 10, 11, _cn_weekday, month_style="cn", size=18)
 
     day_cols = [(DAY0 + i, i) for i in range(days)]
@@ -419,17 +432,17 @@ def _render_ddrive(wb, sheet, model, made_date):
     first_data = r
     for row in sheet["rows"]:
         ws.row_dimensions[r].height = 62
-        _set(ws, f"A{r}", row["media_label"], size=18, wrap=True)
-        _set(ws, f"B{r}", row["region_label"], size=18)
-        _set(ws, f"C{r}", f"{sec}秒", size=18, wrap=True)
-        _set(ws, f"D{r}", row["daypart"], size=18, wrap=True)
-        _set(ws, f"E{r}", row["spots"], size=18)
+        _set(ws, f"{A_}{r}", row["media_label"], size=18, wrap=True)
+        _set(ws, f"{B_}{r}", row["region_label"], size=18)
+        _set(ws, f"{C_}{r}", f"{sec}秒", size=18, wrap=True)
+        _set(ws, f"{D_}{r}", row["daypart"], size=18, wrap=True)
+        _set(ws, f"{E_}{r}", row["spots"], size=18)
         if row["material"]:
-            _set(ws, f"F{r}", row["material"], size=18, fmt=MATERIAL_FMT)
+            _set(ws, f"{F_}{r}", row["material"], size=18, fmt=MATERIAL_FMT)
         is_super = row["kind"] in (ac.KIND_SUPER, ac.KIND_SUPER_REBATE)
         gval = ac.NET_ON_MAG if is_super else row["list_total"]
-        _net_cell(ws, f"G{r}", gval, size=18, fmt=NUM)
-        _net_cell(ws, f"H{r}", row["net_display"], size=18, fmt=NUM, align="right")
+        _net_cell(ws, f"{G_}{r}", gval, size=18, fmt=NUM)
+        _net_cell(ws, f"{H_}{r}", row["net_display"], size=18, fmt=NUM, align="right")
         total_spots += row["spots"]
         if not is_super and isinstance(row["list_total"], (int, float)):
             total_list += row["list_total"]
@@ -449,41 +462,41 @@ def _render_ddrive(wb, sheet, model, made_date):
 
     # 平台專屬合併
     if is_wjf:
-        # 萬家福：C/F/H 合併量販+超市（前兩列）
+        # 萬家福：託播秒數/素材/專案執行價 合併量販+超市（前兩列）
         if data_bot >= first_data + 1:
-            for col in ("C", "F", "H"):
-                _merge(ws, f"{col}{first_data}:{col}{first_data + 1}")
-            _net_cell(ws, f"H{first_data}", sheet["budget"] if not sheet["is_rebate_wave"] else ac.NET_REBATE,
+            for c in (C_, F_, H_):
+                _merge(ws, f"{c}{first_data}:{c}{first_data + 1}")
+            _net_cell(ws, f"{H_}{first_data}", sheet["budget"] if not sheet["is_rebate_wave"] else ac.NET_REBATE,
                       size=18, fmt=NUM, align="right")
     else:
-        # 全家：A/B/C/D/F 直向合併整塊
+        # 全家：媒體/地區/秒數/時段/素材 直向合併整塊
         if data_bot > first_data:
-            for col in ("A", "B", "C", "D", "F"):
-                _merge(ws, f"{col}{first_data}:{col}{data_bot}")
+            for c in (A_, B_, C_, D_, F_):
+                _merge(ws, f"{c}{first_data}:{c}{data_bot}")
 
     # 小計列
     ws.row_dimensions[r].height = 41
-    _set(ws, f"A{r}", "小計", size=18)
-    _merge(ws, f"A{r}:D{r}")
-    _set(ws, f"E{r}", total_spots, size=18, fmt="#,##0")
-    _net_cell(ws, f"G{r}", total_list, size=18, fmt=NUM)
+    _set(ws, f"{A_}{r}", "小計", size=18)
+    _merge(ws, f"{A_}{r}:{D_}{r}")
+    _set(ws, f"{E_}{r}", total_spots, size=18, fmt="#,##0")
+    _net_cell(ws, f"{G_}{r}", total_list, size=18, fmt=NUM)
     # H = 實收（僅主檔）
     net_main = 0
     for row in sheet["rows"]:
         if row["kind"] == ac.KIND_MAIN and isinstance(row["net_display"], (int, float)):
             net_main += row["net_display"]
-    _net_cell(ws, f"H{r}", net_main, size=18, fmt=NUM, align="right")
+    _net_cell(ws, f"{H_}{r}", net_main, size=18, fmt=NUM, align="right")
     for cidx, off in day_cols:
         _set(ws, f"{get_column_letter(cidx)}{r}", sum(s[off] for _, s in schedule_rows), size=16, fmt="#,##0")
     subtotal_row = r
 
     # 框線：外框 medium、內線 thin；小計底 medium
-    _box(ws, 9, 1, subtotal_row, last_col, edge="medium", inner="thin")
+    _box(ws, 9, X0, subtotal_row, last_col, edge="medium", inner="thin")
 
     # 備註（左）＋ 請款；多月份請款每月一列往下排，避免長文字擠到右側費用欄
     br = subtotal_row + 2
     ws.row_dimensions[br].height = 52.7
-    _set(ws, f"A{br}", "備註：", size=22, align="left")
+    _set(ws, f"{A_}{br}", "備註：", size=22, align="left")
     pn = model.get("payment_note", "")
     pay_parts = pn.split("、") if pn else [""]
     for idx, part in enumerate(pay_parts):
@@ -492,16 +505,16 @@ def _render_ddrive(wb, sheet, model, made_date):
             ws.row_dimensions[rr].height = 40
             # 續月縮排＝前綴「* 請款金額：」寬度(≈6全形)，對齊首列「8月份」
             part = "　　　　　　" + part
-        _set(ws, f"A{rr}", part, size=22, align="left", wrap=True)
-        _merge(ws, f"A{rr}:E{rr}")
+        _set(ws, f"{A_}{rr}", part, size=22, align="left", wrap=True)
+        _merge(ws, f"{A_}{rr}:{E_}{rr}")
 
-    # 費用框（F 標籤 / H 值，G 留空，無框線，無 $）
+    # 費用框（標籤 / 值，中間留空，無框線，無 $）
     f = sheet["fees"]
     fee_lines = [("Total Net Cost", f["net"]), ("VAT   (5%)", f["vat"]), ("Total Gross Cost", f["gross"])]
     for i, (lab, val) in enumerate(fee_lines):
         rr = subtotal_row + 2 + i
-        _set(ws, f"F{rr}", lab, size=22, bold=True, align="left")
-        _net_cell(ws, f"H{rr}", val, size=22, bold=True, fmt=NUM, align="right")
+        _set(ws, f"{F_}{rr}", lab, size=22, bold=True, align="left")
+        _net_cell(ws, f"{H_}{rr}", val, size=22, bold=True, fmt=NUM, align="right")
     return ws
 
 
