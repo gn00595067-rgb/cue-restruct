@@ -8,6 +8,7 @@ Streamlit 製作模式「代理商CUE」：輸入表單 → build_agency_model �
 """
 import os
 import base64
+import mimetypes
 from datetime import datetime, date, timedelta
 
 import streamlit as st
@@ -441,6 +442,16 @@ def _render_agency_upload(model, xlsx_bytes, xlsx_name, form_inputs):
     client_name = model["client_name"]
     product_name = model["product_name"]
 
+    # 自調外觀 Excel（選填）：使用者手動調整外觀後上傳，會一併附到 Ragic。
+    # 用 key 保存，跨 rerun（進入確認狀態）不遺失。
+    style_excel_file = st.file_uploader(
+        "自調外觀excel上傳（選填）",
+        type=["xlsx", "xlsm", "xls"],
+        key="ag_ragic_style_excel",
+        help="僅能調整外觀及呈列方式，請勿調整每日檔次及金額等重要資訊（訂檔資訊以程式設定為主）。",
+    )
+    st.caption("僅能調整外觀及呈列方式，請勿調整每日檔次及金額等重要資訊（訂檔資訊以程式設定為主）。")
+
     if not st.session_state.get("ag_ragic_confirm"):
         if st.button("🚀 上傳資料至 Ragic", type="primary", key="ag_ragic_upload_btn"):
             st.session_state["ag_ragic_confirm"] = True
@@ -488,6 +499,13 @@ def _render_agency_upload(model, xlsx_bytes, xlsx_name, form_inputs):
                 if pdf_bytes:
                     files_payload[RAGIC_MAP["file_pdf"]] = (
                         xlsx_name.rsplit(".", 1)[0] + ".pdf", pdf_bytes, "application/pdf",
+                    )
+                # 自調外觀 Excel（選填）→ file_style_xls 欄位
+                if style_excel_file and RAGIC_MAP.get("file_style_xls"):
+                    _name = safe_filename(style_excel_file.name or f"Style_{safe_filename(client_name)}.xlsx")
+                    _mime = mimetypes.guess_type(_name)[0] or "application/octet-stream"
+                    files_payload[RAGIC_MAP["file_style_xls"]] = (
+                        _name, style_excel_file.getvalue(), _mime,
                     )
 
                 success, msg, _rid = upload_to_ragic(
