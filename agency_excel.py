@@ -675,7 +675,8 @@ def _render_carat(wb, sheet, model, made_date):
     a = ws[f"A{rk_top}"]
     a.value = "備\n註"
     a.font = Font(name=FONT, size=12, bold=True)
-    a.alignment = Alignment(horizontal="center", vertical="distributed", wrap_text=True)
+    # 置中：備／註 兩字靠在一起置於中間，不要被 distributed 拉到上下兩端
+    a.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     if row_span > 1:
         _merge(ws, f"A{rk_top}:A{rk_bot}")
     for i, line in enumerate(rmk):
