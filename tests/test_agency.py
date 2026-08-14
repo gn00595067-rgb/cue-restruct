@@ -29,9 +29,12 @@ def _row(sheet, kind):
     raise AssertionError(f"找不到 kind={kind}")
 
 
-def _fam(enabled=True, seconds=15, share=100, rebate_pct=0, spots_override=0):
+def _fam(enabled=True, seconds=15, share=100, rebate_pct=0, spots_override=0,
+         auto_rebate=False):
+    # auto_rebate 預設 False：既有數值測試僅驗手動回饋/補償，自帶回饋另有專測。
     return {"enabled": enabled, "seconds": seconds, "share": share,
-            "rebate_pct": rebate_pct, "spots_override": spots_override}
+            "rebate_pct": rebate_pct, "spots_override": spots_override,
+            "auto_rebate": auto_rebate}
 
 
 def _wjf(enabled=True, seconds=20, share=100, rebate_pct=0, mag_override=0, is_rebate_wave=False):
@@ -244,6 +247,78 @@ def test_F_2008_wjf_rebate_wave():
     assert sh["is_rebate_wave"] is True
     assert mag["net_display"] == ac.NET_REBATE
     assert sh["fees"]["total"] == ac.NET_REBATE
+
+
+# ---------------------------------------------------------------------------
+# 自帶專案回饋（凌晨時數轉換）
+# ---------------------------------------------------------------------------
+def test_offhours_parse_all_formats():
+    # 三家時段格式都要解析出 07→23 = 16 時 → off 8
+    assert ac.family_offhours("07:00-23:00") == 8   # 2008
+    assert ac.family_offhours("07-23") == 8          # 佳聖
+    assert ac.family_offhours("0700-2300") == 8      # 凱絡
+    assert ac.family_offhours("0700-2300 ") == 8     # 含尾空白
+    assert ac.family_offhours("亂七八糟") == 8        # 解析失敗退回預設 8
+
+
+def test_auto_rebate_spots_formula():
+    # 檔 = off(8) × 30 × 30 / 秒
+    assert ac.auto_rebate_spots("07:00-23:00", 30) == 240   # 8×30×1
+    assert ac.auto_rebate_spots("07:00-23:00", 15) == 480   # 8×30×2  ← 合作夥伴案例
+    assert ac.auto_rebate_spots("07:00-23:00", 20) == 360   # 8×30×1.5
+    assert ac.auto_rebate_spots("07:00-23:00", 10) == 720   # 8×30×3
+
+
+def _rows(sheet, kind):
+    return [r for r in sheet["rows"] if r["kind"] == kind]
+
+
+def test_auto_rebate_row_2008():
+    # 統一案例：全家 15秒、預算 250000、自帶回饋開 → 480 檔專案回饋列
+    m = ac.build_agency_model(
+        "2008傳媒", "統一企業", "全家企頻", "",
+        date(2026, 8, 5), date(2026, 9, 1), 250000,
+        _fam(seconds=15, auto_rebate=True), None,
+        ac.COMP_NONE, date(2026, 7, 29), None,
+    )
+    fam = _sheet(m, "全家企頻")
+    main = _row(fam, ac.KIND_MAIN)
+    rebs = _rows(fam, ac.KIND_REBATE)
+    assert main["spots"] == 960
+    assert len(rebs) == 1
+    assert rebs[0]["spots"] == 480
+    assert rebs[0]["net_display"] == ac.NET_REBATE
+    # 自帶回饋不計實收：費用 net 仍等於實作價值（不含回饋列）
+    assert fam["fees"]["budget_net"] == ac.rhu(ac.family_unit_net(15) * 960)
+
+
+def test_auto_rebate_stacks_with_manual_and_comp():
+    # 自帶(480) + 手動%(另一列) 兩列並存，三家共用算法（凱絡逐日鋪滿）
+    m = ac.build_agency_model(
+        "凱絡", "統一企業", "全家企頻", "",
+        date(2026, 8, 5), date(2026, 9, 1), 250000,
+        _fam(seconds=15, rebate_pct=20, auto_rebate=True), None,
+        ac.COMP_PLAN1, date(2026, 7, 29), None,
+    )
+    fam = _sheet(m, "全家企頻")
+    rebs = _rows(fam, ac.KIND_REBATE)
+    assert len(rebs) == 2
+    assert rebs[0]["spots"] == 480                       # 自帶（先列）
+    assert sum(rebs[0]["schedule"]) == 480               # 凱絡逐日鋪滿
+    main = _row(fam, ac.KIND_MAIN)
+    # 手動 20% × (主+補償)
+    assert rebs[1]["spots"] == ac.rhu(0.20 * main["spots"])
+
+
+def test_auto_rebate_off_by_default_when_disabled():
+    m = ac.build_agency_model(
+        "2008傳媒", "統一企業", "全家企頻", "",
+        date(2026, 8, 5), date(2026, 9, 1), 250000,
+        _fam(seconds=15, auto_rebate=False), None,
+        ac.COMP_NONE, date(2026, 7, 29), None,
+    )
+    fam = _sheet(m, "全家企頻")
+    assert _rows(fam, ac.KIND_REBATE) == []
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, timedelta
 import json
 import math
+import re
 
 import config
 
@@ -41,6 +42,12 @@ COMP_OPTIONS = [COMP_PLAN1, COMP_PLAN2, COMP_NONE, COMP_MOVE50]
 # 2008 萬家福專屬：固定 10% 回饋檔直接折進每日排檔（不另立回饋列），實收不變。
 # 其他兩家（佳聖 / 凱絡）照原規則（回饋另立列）。
 WJF_2008_REBATE_PCT = 10.0
+
+# 自帶專案回饋（凌晨時數轉換）：主時段以外的時數，每小時折 30 檔（30秒基準），
+# 再依實際秒數換算（檔 = 時數 × 30 × 30 / 秒）。三家共用同一算法。
+# 例：主時段 07:00-23:00（16時）→ off = 8 時；15秒 = 8×30×2 = 480 檔。
+AUTO_REBATE_SPOTS_PER_HOUR_30S = 30
+AUTO_REBATE_DEFAULT_OFFHOURS = 8
 
 # row.kind
 KIND_MAIN = "main"
@@ -76,6 +83,32 @@ AGENCY_LABELS = {
 def _labels(agency, key):
     """取得（媒體, 地區, 時段）列標籤；未知代理商退回 2008 式。"""
     return AGENCY_LABELS.get(agency, AGENCY_LABELS["2008傳媒"])[key]
+
+
+def family_offhours(daypart):
+    """
+    從主時段字串解析「非主時段時數」= 24 − 主時段時數。
+    支援三家格式：'07:00-23:00'、'07-23'、'0700-2300'（可含換行/空白）。
+    解析失敗退回預設 8（大多數案例為 07-23 → 8 時）。
+    """
+    try:
+        parts = str(daypart).split("-")
+        if len(parts) >= 2:
+            def _hh(s):
+                d = re.sub(r"\D", "", s)
+                return int(d[:2]) if len(d) >= 2 else int(d)
+            span = _hh(parts[1]) - _hh(parts[0])
+            if 0 < span < 24:
+                return 24 - span
+    except (ValueError, IndexError):
+        pass
+    return AUTO_REBATE_DEFAULT_OFFHOURS
+
+
+def auto_rebate_spots(daypart, sec):
+    """自帶專案回饋檔次 = round(非主時段時數 × 30 × 30 / 秒)。"""
+    off = family_offhours(daypart)
+    return rhu(off * AUTO_REBATE_SPOTS_PER_HOUR_30S * 30 / sec)
 
 
 # =============================================================================
@@ -258,8 +291,9 @@ def _new_row(kind, media_label, region_label, daypart, seconds, spots, schedule,
 
 
 def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
-                        spots_override, material_due, ac_pct, agency_pricing, logs):
-    """建立全家企頻 sheet。"""
+                        spots_override, material_due, ac_pct, agency_pricing, logs,
+                        auto_rebate=True):
+    """建立全家企頻 sheet。auto_rebate：自帶專案回饋（凌晨時數轉換），預設開。"""
     unit_net = family_unit_net(sec)
     main_spots = spots_override if spots_override else rhu(budget / unit_net)
     logs.append(f"【全家企頻】單檔實作價({sec}秒)=250000/480/30×{sec}={unit_net:.2f}")
@@ -313,10 +347,10 @@ def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
         ))
         budget_net = budget
 
-    # 專案回饋（加贈）
-    if rebate_pct and rebate_pct > 0:
-        reb = rhu(rebate_pct / 100.0 * (main_spots + comp_spots))
-        logs.append(f"【全家企頻】專案回饋={rebate_pct}%×({main_spots}+{comp_spots})={reb}")
+    # 回饋列建構（2008 合併顯示、佳聖／凱絡逐日鋪滿），供自帶回饋與手動%回饋共用
+    def _append_rebate(reb):
+        if reb <= 0:
+            return
         if agency == "2008傳媒":
             rows.append(_new_row(
                 KIND_REBATE, "", "", "", sec, reb, None,
@@ -333,6 +367,20 @@ def _build_family_sheet(agency, sec, budget, days, comp_mode, rebate_pct,
                 market_per=market_per, uni_per=uni_per, uni_total=uni_per * reb,
                 net_display=NET_REBATE,
             ))
+
+    # 自帶專案回饋（凌晨時數轉換）：非主時段時數 × 30檔 × 30/秒。三家共用。
+    if auto_rebate:
+        off = family_offhours(fam_daypart)
+        auto_reb = auto_rebate_spots(fam_daypart, sec)
+        logs.append(f"【全家企頻】自帶專案回饋(時數轉換)=(24-主時段)×30×30/{sec}"
+                    f"={off}×30×{30/sec:g}={auto_reb}")
+        _append_rebate(auto_reb)
+
+    # 專案回饋（手動加贈 %）
+    if rebate_pct and rebate_pct > 0:
+        reb = rhu(rebate_pct / 100.0 * (main_spots + comp_spots))
+        logs.append(f"【全家企頻】專案回饋={rebate_pct}%×({main_spots}+{comp_spots})={reb}")
+        _append_rebate(reb)
 
     fees = _build_fees(agency, budget_net, ac_pct, is_rebate_wave=False)
     return {
@@ -495,6 +543,7 @@ def build_agency_model(agency, client_name, product_name, campaign,
 
     fam_cfg / wjf_cfg：平台設定 dict，可為 None（未啟用）。
       共通鍵：enabled(bool)、seconds(int)、share(佔比%)、rebate_pct(float)、spots_override(int, 0=自動)
+      fam_cfg 另有：auto_rebate(bool, 預設True=自帶專案回饋/凌晨時數轉換)
       wjf_cfg 另有：mag_override(int)、is_rebate_wave(bool)
     comp_mode：COMP_MOVE50 / COMP_PLAN1 / COMP_PLAN2 / COMP_NONE
     回傳 model：{agency, client_name, product_name, campaign, start_date, end_date,
@@ -538,6 +587,7 @@ def build_agency_model(agency, client_name, product_name, campaign,
             agency, int(fam_cfg["seconds"]), fam_budget, days, comp_mode,
             fam_cfg.get("rebate_pct", 0), int(fam_cfg.get("spots_override", 0) or 0),
             material_due, ac_pct, agency_pricing, logs,
+            auto_rebate=bool(fam_cfg.get("auto_rebate", True)),
         ))
 
     # 方案二補償需要一張萬家福表承載；若萬家福未啟用則單獨為補償建表

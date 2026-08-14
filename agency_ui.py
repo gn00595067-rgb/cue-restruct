@@ -259,10 +259,16 @@ def render_agency_cue(sales_map=None):
         fam_cfg = None
         if fam_on:
             fam_sec = st.selectbox("全家 秒數", SEC_OPTIONS, index=SEC_OPTIONS.index(15), key="ag_fam_sec")
-            fam_reb = st.number_input("全家 專案回饋 %", 0, 100, st.session_state.get("ag_fam_reb", 0), key="ag_fam_reb")
+            fam_auto_reb = st.checkbox(
+                "自帶專案回饋（凌晨時數轉換）", value=st.session_state.get("ag_fam_auto_reb", True),
+                key="ag_fam_auto_reb",
+                help="非主時段時數(24−主時段)×30檔×30/秒，自動另立一列「專案回饋」。"
+                     "例：主時段07-23→8時、15秒=8×30×2=480檔。三家共用。")
+            fam_reb = st.number_input("全家 專案回饋 %（手動另計）", 0, 100, st.session_state.get("ag_fam_reb", 0), key="ag_fam_reb")
             fam_ovr = st.number_input("全家 檔次覆寫（0=自動）", 0, value=st.session_state.get("ag_fam_ovr", 0), key="ag_fam_ovr")
             fam_cfg = {"enabled": True, "seconds": int(fam_sec), "share": 100,
-                       "rebate_pct": float(fam_reb), "spots_override": int(fam_ovr)}
+                       "rebate_pct": float(fam_reb), "spots_override": int(fam_ovr),
+                       "auto_rebate": bool(fam_auto_reb)}
 
     # --- 萬家福 ---
     with colw:
@@ -606,6 +612,7 @@ def _restore_agency_state(record):
         ss["ag_fam_reb"] = int(fam.get("rebate_pct", 0) or 0)
         ss["ag_fam_ovr"] = int(fam.get("spots_override", 0) or 0)
         ss["ag_fam_share"] = int(fam.get("share", 100) or 100)
+        ss["ag_fam_auto_reb"] = bool(fam.get("auto_rebate", True))
     else:
         ss["ag_fam_on"] = False
 
