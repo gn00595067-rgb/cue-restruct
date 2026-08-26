@@ -24,7 +24,7 @@ BOLIN_LOGO_URL = "https://drive.google.com/uc?export=view&id=1KhkTDsLtmFqPq1Bj5g
 RAGIC_FIELD_SERIAL = '1015306'
 
 # Ragic 預設連線設定
-DEFAULT_RAGIC_URL = "https://ap13.ragic.com/soundwow/cue/2?PAGEID=jQV"
+DEFAULT_RAGIC_URL = "https://ap16.ragic.com/soundwow/cue/2?PAGEID=jQV"
 DEFAULT_RAGIC_KEY = "MEwyTEExWHJQamRDalZ6N0hzQ2syZlBHNUNJeWhwZFBrM3BMM2tDRWd4aGIvZ1JxWTlYaGkyM0RoRmo1ZExHaA=="
 
 # Ragic 欄位 ID 對照表
